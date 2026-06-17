@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Brain,
   Inbox,
@@ -18,54 +18,86 @@ import { Separator } from "@my-better-t-app/ui/components/separator";
 import { ScrollArea } from "@my-better-t-app/ui/components/scroll-area";
 import { QuickCaptureModal } from "@/components/capture/quick-capture-modal";
 import { brainEvents } from "@/lib/events";
+import { useInboxCount } from "@/hooks/use-notes";
+
+type ParaCategory = "project" | "area" | "resource" | "archive";
 
 interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
   exact?: boolean;
 }
 
-interface NavSection {
-  title?: string;
-  items: NavItem[];
+interface ParaItem {
+  category: ParaCategory;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
-const NAV_SECTIONS: NavSection[] = [
-  {
-    items: [
-      { to: "/", label: "Dashboard", icon: Activity, exact: true },
-      { to: "/inbox", label: "Inbox", icon: Inbox, badge: "12" },
-      { to: "/daily", label: "Daily Note", icon: CalendarDays },
-      { to: "/graph", label: "Knowledge Graph", icon: Network },
-    ],
-  },
-  {
-    title: "PARA",
-    items: [
-      { to: "/inbox?para=project", label: "Projetos", icon: Briefcase },
-      { to: "/inbox?para=area", label: "Áreas", icon: Globe },
-      { to: "/inbox?para=resource", label: "Recursos", icon: BookOpen },
-      { to: "/inbox?para=archive", label: "Archive", icon: Archive },
-    ],
-  },
-  {
-    title: "Vault",
-    items: [
-      { to: "/", label: "Saúde da Vault", icon: Activity, exact: true },
-      { to: "/ai", label: "AI Studio", icon: Sparkles, exact: true },
-    ],
-  },
+const MAIN_NAV: NavItem[] = [
+  { to: "/", label: "Dashboard", icon: Activity, exact: true },
+  { to: "/inbox", label: "Inbox", icon: Inbox, exact: true },
+  { to: "/daily", label: "Daily Note", icon: CalendarDays },
+  { to: "/graph", label: "Knowledge Graph", icon: Network },
+];
+
+const PARA_NAV: ParaItem[] = [
+  { category: "project", label: "Projetos", icon: Briefcase },
+  { category: "area", label: "Áreas", icon: Globe },
+  { category: "resource", label: "Recursos", icon: BookOpen },
+  { category: "archive", label: "Archive", icon: Archive },
+];
+
+const VAULT_NAV: NavItem[] = [
+  { to: "/", label: "Saúde da Vault", icon: Activity, exact: true },
+  { to: "/ai", label: "AI Studio", icon: Sparkles, exact: true },
 ];
 
 export function Sidebar() {
   const router = useRouterState();
+  const navigate = useNavigate();
   const pathname = router.location.pathname;
+  const inboxCount = useInboxCount();
 
-  function isActive(item: NavItem) {
-    if (item.exact) return pathname === item.to;
+  const currentPara = (router.location.search as { para?: string }).para ?? null;
+
+  function isNavActive(item: NavItem) {
+    if (item.exact) {
+      if (item.to === "/inbox") return pathname === "/inbox" && !currentPara;
+      return pathname === item.to;
+    }
     return pathname.startsWith(item.to);
+  }
+
+  function isParaActive(category: ParaCategory) {
+    return pathname === "/inbox" && currentPara === category;
+  }
+
+  function renderNavItem(item: NavItem, active: boolean, badge?: React.ReactNode) {
+    return (
+      <Link
+        to={item.to}
+        className={cn(
+          "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+          active
+            ? "bg-accent text-sidebar-primary shadow-[inset_3px_0_0_var(--color-sidebar-primary)] -ml-[3px] pl-[calc(0.625rem+3px)]"
+            : "text-sidebar-foreground/70 hover:bg-accent/50 hover:text-sidebar-foreground",
+        )}
+      >
+        <item.icon
+          className={cn(
+            "size-4 shrink-0 transition-colors",
+            active ? "text-sidebar-primary" : "text-muted-foreground group-hover:text-sidebar-foreground",
+          )}
+        />
+        <span className="flex-1 truncate">{item.label}</span>
+        {badge}
+        {!active && (
+          <ChevronRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity" />
+        )}
+      </Link>
+    );
   }
 
   return (
@@ -101,58 +133,75 @@ export function Sidebar() {
 
       <Separator />
 
-      {/* Navigation */}
       <ScrollArea className="flex-1">
         <nav className="p-2 space-y-4">
-          {NAV_SECTIONS.map((section, sIdx) => (
-            <div key={sIdx}>
-              {section.title && (
-                <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  {section.title}
-                </p>
-              )}
-              <ul className="space-y-0.5">
-                {section.items.map((item) => {
-                  const active = isActive(item);
-                  return (
-                    <li key={item.to}>
-                      <Link
-                        to={item.to}
+          {/* Main nav */}
+          <ul className="space-y-0.5">
+            {MAIN_NAV.map((item) => {
+              const active = isNavActive(item);
+              const badge =
+                item.to === "/inbox" && inboxCount !== null && inboxCount > 0 ? (
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
+                    {inboxCount}
+                  </span>
+                ) : undefined;
+              return <li key={item.to}>{renderNavItem(item, active, badge)}</li>;
+            })}
+          </ul>
+
+          {/* PARA */}
+          <div>
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              PARA
+            </p>
+            <ul className="space-y-0.5">
+              {PARA_NAV.map((item) => {
+                const active = isParaActive(item.category);
+                return (
+                  <li key={item.category}>
+                    <button
+                      onClick={() =>
+                        navigate({ to: "/inbox", search: { para: item.category } })
+                      }
+                      className={cn(
+                        "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+                        active
+                          ? "bg-accent text-sidebar-primary shadow-[inset_3px_0_0_var(--color-sidebar-primary)] -ml-[3px] pl-[calc(0.625rem+3px)]"
+                          : "text-sidebar-foreground/70 hover:bg-accent/50 hover:text-sidebar-foreground",
+                      )}
+                    >
+                      <item.icon
                         className={cn(
-                          "group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
-                          active
-                            ? "bg-accent text-sidebar-primary shadow-[inset_3px_0_0_var(--color-sidebar-primary)] -ml-[3px] pl-[calc(0.625rem+3px)]"
-                            : "text-sidebar-foreground/70 hover:bg-accent/50 hover:text-sidebar-foreground",
+                          "size-4 shrink-0 transition-colors",
+                          active ? "text-sidebar-primary" : "text-muted-foreground group-hover:text-sidebar-foreground",
                         )}
-                      >
-                        <item.icon
-                          className={cn(
-                            "size-4 shrink-0 transition-colors",
-                            active
-                              ? "text-sidebar-primary"
-                              : "text-muted-foreground group-hover:text-sidebar-foreground",
-                          )}
-                        />
-                        <span className="flex-1 truncate">{item.label}</span>
-                        {item.badge && (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary/15 px-1 text-[10px] font-semibold text-primary">
-                            {item.badge}
-                          </span>
-                        )}
-                        {!active && (
-                          <ChevronRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity" />
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
+                      />
+                      <span className="flex-1 text-left truncate">{item.label}</span>
+                      {!active && (
+                        <ChevronRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Vault */}
+          <div>
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Vault
+            </p>
+            <ul className="space-y-0.5">
+              {VAULT_NAV.map((item) => {
+                const active = isNavActive(item);
+                return <li key={item.to + item.label}>{renderNavItem(item, active)}</li>;
+              })}
+            </ul>
+          </div>
         </nav>
       </ScrollArea>
 
-      {/* Bottom */}
       <Separator />
       <div className="p-3">
         <p className="text-center text-[10px] text-muted-foreground">

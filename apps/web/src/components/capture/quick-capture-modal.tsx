@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@my-better-t-app/ui/components/button";
@@ -17,6 +17,7 @@ import {
 } from "@my-better-t-app/ui/components/native-select";
 import { Textarea } from "@my-better-t-app/ui/components/textarea";
 import { useCreateNote } from "@/hooks/use-notes";
+import { brainEvents } from "@/lib/events";
 import type { NoteType, SourceType } from "@/types/brain";
 
 export function QuickCaptureModal() {
@@ -28,6 +29,8 @@ export function QuickCaptureModal() {
   const [tags, setTags] = useState("");
 
   const { create, loading } = useCreateNote();
+
+  useEffect(() => brainEvents.on("open-capture", () => setOpen(true)), []);
 
   function reset() {
     setTitle("");
@@ -136,9 +139,15 @@ export function QuickCaptureModal() {
             </div>
 
             <p className="text-[10px] text-muted-foreground">
-              Será salva como{" "}
-              <span className="text-note-fleeting font-medium">Fleeting Note</span>{" "}
-              — processe em até 48h.
+              {type === "fleeting" && (
+                <>Será salva como <span className="text-note-fleeting font-medium">Fleeting Note</span> — processe em até 48h.</>
+              )}
+              {type === "literature" && (
+                <>Será salva como <span className="text-note-literature font-medium">Literature Note</span> — registre a fonte acima.</>
+              )}
+              {type === "permanent" && (
+                <>Será salva como <span className="font-medium">Permanent Note</span> — definitiva e processada.</>
+              )}
             </p>
           </div>
 

@@ -75,6 +75,24 @@ export function useProcessNote() {
   return { process, loading };
 }
 
+export function useInboxCount() {
+  const [count, setCount] = useState<number | null>(null);
+
+  const fetch = useCallback(async () => {
+    try {
+      const { total } = await api.notes.list({ status: "inbox", limit: 1 });
+      setCount(total);
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => brainEvents.on("note-created", fetch), [fetch]);
+  useEffect(() => brainEvents.on("note-updated", fetch), [fetch]);
+  useEffect(() => brainEvents.on("note-deleted", fetch), [fetch]);
+
+  return count;
+}
+
 export function useDeleteNote() {
   const [loading, setLoading] = useState(false);
 
