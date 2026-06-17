@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx shadcn@latest info --json)",
+      "Bash(npx shadcn@latest view --json)",
+      "Bash(npx shadcn@latest add --help)",
+      "mcp__context7__resolve-library-id",
+      "Bash(npx shadcn@latest add --all -y)",
+      "Bash(npx shadcn@latest add --all -y -o)",
+      "Bash(npm install *)",
+      "Bash(npm audit *)",
+      "Bash(npm run *)",
+      "Bash(awk '{ print length, NR }' \"C:\\\\Users\\\\BOC148 - Usuario\\\\Downloads\\\\Second Brain.html\")",
+      "Bash(powershell *)",
+      "Bash(grep -o \"#[0-9a-fA-F]\\\\{3,8\\\\}\\\\|rgba\\\\?\\([^\\)]*\\)\\\\|oklch\\([^\\)]*\\)\" \"C:/Users/BOC148 - Usuario/Downloads/Second Brain.html\")",
+      "Bash(grep -o \"\\\\\"[A-Za-z]\\\\{4,30\\\\}Panel\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Sidebar\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Header\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Modal\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}View\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Card\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Bar\\\\\"\\\\|\\\\\"[A-Za-z]\\\\{4,30\\\\}Menu\\\\\"\" \"C:/Users/BOC148 - Usuario/Downloads/Second Brain.html\")",
+      "Bash(grep -oP \"[A-Z][a-z]{2,}\\( [A-Z][a-z]{2,}\\)*\" \"C:/Users/BOC148 - Usuario/Downloads/Second Brain.html\")",
+      "Bash(grep -v \"^>$\\\\|^>[[:space:]]*<$\\\\|>  *<\")",
+      "Bash(grep -v \"^>[A-Za-z]\\\\{3\\\\}<$\")",
+      "Bash(npx supabase *)",
+      "Bash(npx tsc *)",
+      "Bash(xargs grep -l \"\")",
+      "mcp__context7__query-docs",
+      "Bash(xargs cat)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "better-t-stack",
+    "context7",
+    "shadcn",
+    "supabase"
+  ]
+}
