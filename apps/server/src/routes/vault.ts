@@ -1,6 +1,7 @@
 import { db, connections, notes } from "@my-better-t-app/db";
 import { count, sql } from "drizzle-orm";
 import { Router } from "express";
+import { ne } from "drizzle-orm";
 
 export const vaultRouter = Router();
 
@@ -41,5 +42,26 @@ vaultRouter.get("/stats", async (_req, res) => {
     pending,
     connections: totalConnections,
     healthScore,
+  });
+});
+
+// ─── GET /vault/graph ─────────────────────────────────────────────────────────
+
+vaultRouter.get("/graph", async (_req, res) => {
+  const [allNotes, allEdges] = await Promise.all([
+    db.select({ id: notes.id, title: notes.title, type: notes.type }).from(notes),
+    db.select({ fromNoteId: connections.fromNoteId, toNoteId: connections.toNoteId }).from(connections),
+  ]);
+
+  const connectionCountMap = new Map<string, number>();
+  for (const note of allNotes) connectionCountMap.set(note.id, 0);
+  for (const edge of allEdges) {
+    connectionCountMap.set(edge.fromNoteId, (connectionCountMap.get(edge.fromNoteId) ?? 0) + 1);
+    connectionCountMap.set(edge.toNoteId, (connectionCountMap.get(edge.toNoteId) ?? 0) + 1);
+  }
+
+  return res.json({
+    nodes: allNotes.map((n) => ({ ...n, connectionCount: connectionCountMap.get(n.id) ?? 0 })),
+    edges: allEdges,
   });
 });

@@ -31,13 +31,18 @@ export function useConnections(noteId: string) {
     fetch();
   }, [fetch]);
 
-  const remove = useCallback(
-    async (connectionId: string) => {
-      await api.connections.delete(connectionId);
-      setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+  const remove = useCallback(async (connectionId: string) => {
+    await api.connections.delete(connectionId);
+    setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+  }, []);
+
+  const add = useCallback(
+    async (toNoteId: string) => {
+      await api.connections.create({ fromNoteId: noteId, toNoteId });
+      await fetch();
     },
-    [],
+    [noteId, fetch],
   );
 
-  return { connections, loading, error, refetch: fetch, remove };
+  return { connections, loading, error, refetch: fetch, remove, add };
 }

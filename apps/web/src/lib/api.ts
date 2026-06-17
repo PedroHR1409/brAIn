@@ -1,4 +1,7 @@
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3000";
+const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const BASE = rawApiUrl
+  ? rawApiUrl.startsWith("http") ? rawApiUrl : `https://${rawApiUrl}`
+  : "http://localhost:3000";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +21,18 @@ export interface ApiNote {
   updatedAt: string;
   tags: string[];
   connections: number;
+}
+
+export interface ApiGraphNode {
+  id: string;
+  title: string;
+  type: "fleeting" | "literature" | "permanent";
+  connectionCount: number;
+}
+
+export interface ApiGraphEdge {
+  fromNoteId: string;
+  toNoteId: string;
 }
 
 export interface ApiVaultStats {
@@ -127,5 +142,6 @@ export const api = {
   },
   vault: {
     stats: () => request<ApiVaultStats>("/vault/stats"),
+    graph: () => request<{ nodes: ApiGraphNode[]; edges: ApiGraphEdge[] }>("/vault/graph"),
   },
 };

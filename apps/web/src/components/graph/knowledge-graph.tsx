@@ -1,198 +1,221 @@
-import { useState } from "react";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { ZoomIn, ZoomOut, RefreshCw } from "lucide-react";
 import { Button } from "@my-better-t-app/ui/components/button";
+import { api, type ApiGraphNode, type ApiGraphEdge } from "@/lib/api";
 
-interface GraphNode {
-  id: string;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface LayoutNode extends ApiGraphNode {
   x: number;
   y: number;
   r: number;
-  label: string;
-  type: "hub" | "permanent" | "literature" | "fleeting";
 }
 
-interface GraphEdge {
-  from: string;
-  to: string;
+// ─── Force-directed layout ────────────────────────────────────────────────────
+
+function computeLayout(nodes: ApiGraphNode[], W = 860, H = 540): LayoutNode[] {
+  if (nodes.length === 0) return [];
+
+  const pos = nodes.map((n) => ({
+    ...n,
+    x: W / 2 + (Math.random() - 0.5) * W * 0.7,
+    y: H / 2 + (Math.random() - 0.5) * H * 0.7,
+    r: Math.max(16, Math.min(44, 16 + n.connectionCount * 6)),
+    vx: 0,
+    vy: 0,
+  }));
+
+  const REPULSION = 4000;
+  const GRAVITY = 0.015;
+  const DAMPING = 0.85;
+
+  for (let iter = 0; iter < 200; iter++) {
+    for (const p of pos) { p.vx = 0; p.vy = 0; }
+
+    // Repulsion
+    for (let i = 0; i < pos.length; i++) {
+      for (let j = i + 1; j < pos.length; j++) {
+        const dx = pos[j].x - pos[i].x;
+        const dy = pos[j].y - pos[i].y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = REPULSION / (d * d);
+        pos[i].vx -= (dx / d) * f;
+        pos[i].vy -= (dy / d) * f;
+        pos[j].vx += (dx / d) * f;
+        pos[j].vy += (dy / d) * f;
+      }
+    }
+
+    // Center gravity
+    for (const p of pos) {
+      p.vx += (W / 2 - p.x) * GRAVITY;
+      p.vy += (H / 2 - p.y) * GRAVITY;
+    }
+
+    // Apply + clamp
+    for (const p of pos) {
+      p.x = Math.max(p.r + 8, Math.min(W - p.r - 8, p.x + p.vx * DAMPING));
+      p.y = Math.max(p.r + 8, Math.min(H - p.r - 8, p.y + p.vy * DAMPING));
+    }
+  }
+
+  return pos;
 }
 
-const NODES: GraphNode[] = [
-  { id: "center", x: 400, y: 290, r: 52, label: "🧠", type: "hub" },
-  { id: "n1", x: 215, y: 165, r: 34, label: "PKM", type: "permanent" },
-  { id: "n2", x: 590, y: 145, r: 32, label: "Zettelkasten", type: "permanent" },
-  { id: "n3", x: 685, y: 310, r: 28, label: "Aprendizado", type: "literature" },
-  { id: "n4", x: 580, y: 450, r: 28, label: "Projetos", type: "permanent" },
-  { id: "n5", x: 205, y: 415, r: 26, label: "Daily Notes", type: "fleeting" },
-  { id: "n6", x: 95, y: 285, r: 24, label: "Ideias", type: "fleeting" },
-  { id: "n7", x: 330, y: 115, r: 26, label: "Livros", type: "literature" },
-  { id: "n8", x: 480, y: 75, r: 22, label: "Artigos", type: "literature" },
-  { id: "n9", x: 760, y: 210, r: 22, label: "Código", type: "permanent" },
-  { id: "n10", x: 130, y: 165, r: 20, label: "PARA", type: "permanent" },
-  { id: "n11", x: 720, y: 400, r: 18, label: "Podcasts", type: "literature" },
-  { id: "n12", x: 310, y: 450, r: 18, label: "Reflexões", type: "fleeting" },
-];
+// ─── Colors ───────────────────────────────────────────────────────────────────
 
-const EDGES: GraphEdge[] = [
-  { from: "center", to: "n1" },
-  { from: "center", to: "n2" },
-  { from: "center", to: "n3" },
-  { from: "center", to: "n4" },
-  { from: "center", to: "n5" },
-  { from: "center", to: "n6" },
-  { from: "n1", to: "n7" },
-  { from: "n1", to: "n10" },
-  { from: "n2", to: "n7" },
-  { from: "n2", to: "n8" },
-  { from: "n3", to: "n9" },
-  { from: "n3", to: "n8" },
-  { from: "n3", to: "n11" },
-  { from: "n4", to: "n12" },
-  { from: "n5", to: "n12" },
-  { from: "n6", to: "n10" },
-];
-
-const nodeColor: Record<GraphNode["type"], string> = {
-  hub: "#7C3AED",
-  permanent: "#10B981",
-  literature: "#3B82F6",
-  fleeting: "#F59E0B",
+const COLOR: Record<string, { fill: string; stroke: string }> = {
+  permanent: { fill: "#10B981", stroke: "#34D399" },
+  literature: { fill: "#3B82F6", stroke: "#60A5FA" },
+  fleeting:   { fill: "#F59E0B", stroke: "#FBBF24" },
 };
 
-const nodeStroke: Record<GraphNode["type"], string> = {
-  hub: "#A78BFA",
-  permanent: "#34D399",
-  literature: "#60A5FA",
-  fleeting: "#FBBF24",
-};
-
-const nodeMap = Object.fromEntries(NODES.map((n) => [n.id, n]));
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function KnowledgeGraph() {
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [nodes, setNodes] = useState<LayoutNode[]>([]);
+  const [edges, setEdges] = useState<ApiGraphEdge[]>([]);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [scale, setScale] = useState(1);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const { nodes: raw, edges: rawEdges } = await api.vault.graph();
+      setEdges(rawEdges);
+      setNodes(computeLayout(raw));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  const nodeMap = Object.fromEntries(nodes.map((n) => [n.id, n]));
 
   return (
     <div className="relative w-full h-full min-h-[500px] rounded-xl border border-border bg-card overflow-hidden">
+      {/* Header */}
       <div className="absolute top-3 left-4 z-10">
-        <h2 className="text-sm font-semibold text-card-foreground">
-          Knowledge Graph
-        </h2>
+        <h2 className="text-sm font-semibold text-card-foreground">Knowledge Graph</h2>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          {NODES.length} notas · {EDGES.length} conexões
+          {nodes.length} notas · {edges.length} conexões
         </p>
       </div>
 
+      {/* Controls */}
       <div className="absolute top-3 right-3 z-10 flex gap-1.5">
-        <Button variant="outline" size="icon-sm">
-          <ZoomOut className="size-3.5" />
-        </Button>
-        <Button variant="outline" size="icon-sm">
+        <Button variant="outline" size="icon-sm" onClick={() => setScale((s) => Math.min(2, s + 0.15))}>
           <ZoomIn className="size-3.5" />
         </Button>
-        <Button variant="outline" size="icon-sm">
-          <Maximize2 className="size-3.5" />
+        <Button variant="outline" size="icon-sm" onClick={() => setScale((s) => Math.max(0.4, s - 0.15))}>
+          <ZoomOut className="size-3.5" />
+        </Button>
+        <Button variant="outline" size="icon-sm" onClick={load} disabled={loading}>
+          <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
-      <svg
-        viewBox="0 0 860 560"
-        className="w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <radialGradient id="hubGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.9" />
-            <stop offset="100%" stopColor="#4A1D96" stopOpacity="0.7" />
-          </radialGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
+      {loading ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <p className="text-xs text-muted-foreground">Calculando grafo…</p>
+          </div>
+        </div>
+      ) : nodes.length === 0 ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-sm text-muted-foreground">Crie notas e conecte-as para ver o grafo.</p>
+        </div>
+      ) : (
+        <svg
+          viewBox="0 0 860 540"
+          className="w-full h-full"
+          style={{ transform: `scale(${scale})`, transformOrigin: "center", transition: "transform 0.2s" }}
+        >
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
 
-        {/* Edges */}
-        {EDGES.map((edge) => {
-          const from = nodeMap[edge.from];
-          const to = nodeMap[edge.to];
-          if (!from || !to) return null;
-          const isActive =
-            hoveredNode === edge.from || hoveredNode === edge.to;
-          return (
-            <line
-              key={`${edge.from}-${edge.to}`}
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              stroke={isActive ? "#7C3AED" : "#2D2D3F"}
-              strokeWidth={isActive ? 2 : 1.5}
-              strokeOpacity={isActive ? 0.8 : 0.5}
-              className="transition-all duration-200"
-            />
-          );
-        })}
-
-        {/* Nodes */}
-        {NODES.map((node) => {
-          const isHovered = hoveredNode === node.id;
-          const fill =
-            node.type === "hub" ? "url(#hubGrad)" : nodeColor[node.type];
-          return (
-            <g
-              key={node.id}
-              onMouseEnter={() => setHoveredNode(node.id)}
-              onMouseLeave={() => setHoveredNode(null)}
-              className="cursor-pointer"
-            >
-              <circle
-                cx={node.x}
-                cy={node.y}
-                r={node.r + (isHovered ? 4 : 0)}
-                fill={fill}
-                fillOpacity={node.type === "hub" ? 1 : isHovered ? 0.9 : 0.75}
-                stroke={nodeStroke[node.type]}
-                strokeWidth={isHovered ? 2.5 : 1.5}
-                filter={isHovered ? "url(#glow)" : undefined}
-                className="transition-all duration-200"
+          {/* Edges */}
+          {edges.map((edge) => {
+            const from = nodeMap[edge.fromNoteId];
+            const to = nodeMap[edge.toNoteId];
+            if (!from || !to) return null;
+            const active = hovered === edge.fromNoteId || hovered === edge.toNoteId;
+            return (
+              <line
+                key={`${edge.fromNoteId}-${edge.toNoteId}`}
+                x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                stroke={active ? "#7C3AED" : "#374151"}
+                strokeWidth={active ? 2 : 1.5}
+                strokeOpacity={active ? 0.9 : 0.4}
+                className="transition-all duration-150"
               />
-              <text
-                x={node.x}
-                y={node.type === "hub" ? node.y + 5 : node.y + 1}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill="#FAFAFA"
-                fontSize={node.type === "hub" ? 26 : node.r > 28 ? 10 : 8}
-                fontFamily="Inter, system-ui, sans-serif"
-                fontWeight={600}
-                className="pointer-events-none select-none"
+            );
+          })}
+
+          {/* Nodes */}
+          {nodes.map((node) => {
+            const isHov = hovered === node.id;
+            const c = COLOR[node.type] ?? COLOR.fleeting;
+            return (
+              <g
+                key={node.id}
+                onMouseEnter={() => setHovered(node.id)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => navigate({ to: "/notes/$id", params: { id: node.id } })}
+                className="cursor-pointer"
               >
-                {node.type === "hub" ? node.label : node.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+                <circle
+                  cx={node.x} cy={node.y}
+                  r={node.r + (isHov ? 3 : 0)}
+                  fill={c.fill}
+                  fillOpacity={isHov ? 0.95 : 0.75}
+                  stroke={c.stroke}
+                  strokeWidth={isHov ? 2.5 : 1.5}
+                  filter={isHov ? "url(#glow)" : undefined}
+                  className="transition-all duration-150"
+                />
+                <text
+                  x={node.x} y={node.y}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fill="#F9FAFB"
+                  fontSize={node.r > 28 ? 9 : 8}
+                  fontFamily="Inter, system-ui, sans-serif"
+                  fontWeight={600}
+                  className="pointer-events-none select-none"
+                >
+                  {node.title.length > 14 ? `${node.title.slice(0, 13)}…` : node.title}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      )}
 
       {/* Legend */}
       <div className="absolute bottom-3 left-4 flex items-center gap-4">
-        {(
-          [
-            { type: "permanent", label: "Permanent" },
-            { type: "literature", label: "Literature" },
-            { type: "fleeting", label: "Fleeting" },
-          ] as const
-        ).map(({ type, label }) => (
+        {(["permanent", "literature", "fleeting"] as const).map((type) => (
           <div key={type} className="flex items-center gap-1.5">
-            <span
-              className="size-2 rounded-full"
-              style={{ backgroundColor: nodeColor[type] }}
-            />
-            <span className="text-[10px] text-muted-foreground">{label}</span>
+            <span className="size-2 rounded-full" style={{ backgroundColor: COLOR[type].fill }} />
+            <span className="text-[10px] text-muted-foreground capitalize">{type}</span>
           </div>
         ))}
       </div>
+
+      {/* Tooltip hint */}
+      {hovered && (
+        <div className="absolute bottom-3 right-4 text-[10px] text-muted-foreground">
+          Clique para abrir a nota
+        </div>
+      )}
     </div>
   );
 }

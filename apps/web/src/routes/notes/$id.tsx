@@ -20,7 +20,7 @@ function NoteDetailPage() {
   const router = useRouter();
 
   const { note, loading, saving, processing, error, update, processNote } = useNote(id);
-  const { connections, loading: connLoading, remove: removeConnection } = useConnections(id);
+  const { connections, loading: connLoading, remove: removeConnection, add: addConnection } = useConnections(id);
   const { remove: deleteNote } = useDeleteNote();
 
   async function handleDelete() {
@@ -119,6 +119,7 @@ function NoteDetailPage() {
               onArchive={handleArchive}
               onDelete={handleDelete}
               onRemoveConnection={removeConnection}
+              onAddConnection={addConnection}
             />
           ) : null}
         </div>

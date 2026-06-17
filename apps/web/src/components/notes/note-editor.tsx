@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
-import { Tag, X, LayoutTemplate, ChevronDown } from "lucide-react";
+import { Tag, X, LayoutTemplate, ChevronDown, Eye, Pencil } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { Input } from "@my-better-t-app/ui/components/input";
 import { Textarea } from "@my-better-t-app/ui/components/textarea";
@@ -31,6 +33,7 @@ export function NoteEditor({ note, onUpdate }: NoteEditorProps) {
   const [content, setContent] = useState(note.content ?? "");
   const [tagInput, setTagInput] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const tagInputRef = useRef<HTMLInputElement>(null);
 
@@ -83,42 +86,91 @@ export function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       {/* Content toolbar */}
       <div className="flex items-center justify-between -mb-2">
         <span className="text-[11px] text-muted-foreground">Conteúdo</span>
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-            onClick={() => setShowTemplates((v) => !v)}
-          >
-            <LayoutTemplate className="size-3" />
-            Templates
-            <ChevronDown className="size-3" />
-          </Button>
+        <div className="flex items-center gap-1">
+          {/* Template picker */}
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+              onClick={() => { setShowTemplates((v) => !v); setPreview(false); }}
+            >
+              <LayoutTemplate className="size-3" />
+              Templates
+              <ChevronDown className="size-3" />
+            </Button>
+            {showTemplates && (
+              <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+                {TEMPLATES.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => applyTemplate(t.content)}
+                    className="flex w-full items-center px-3 py-2 text-xs text-left hover:bg-accent transition-colors"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {showTemplates && (
-            <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
-              {TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => applyTemplate(t.content)}
-                  className="flex w-full items-center px-3 py-2 text-xs text-left hover:bg-accent transition-colors"
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Preview toggle */}
+          <Button
+            variant={preview ? "default" : "ghost"}
+            size="sm"
+            className="h-6 gap-1 px-2 text-[11px]"
+            onClick={() => { setPreview((v) => !v); setShowTemplates(false); }}
+          >
+            {preview ? <Pencil className="size-3" /> : <Eye className="size-3" />}
+            {preview ? "Editar" : "Preview"}
+          </Button>
         </div>
       </div>
 
-      {/* Content */}
-      <Textarea
-        value={content}
-        onChange={handleContentChange}
-        placeholder={"Escreva o conteúdo da nota…\n\nSuporta Markdown."}
-        className="min-h-[380px] resize-none rounded-xl bg-card font-mono text-sm leading-relaxed border-border focus-visible:ring-primary/50"
-        onClick={() => setShowTemplates(false)}
-      />
+      {/* Content — edit or preview */}
+      {preview ? (
+        <div
+          className="min-h-[380px] rounded-xl border border-border bg-card p-4 text-sm leading-relaxed prose-note overflow-auto cursor-text"
+          onClick={() => setPreview(false)}
+        >
+          {content ? (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => <h1 className="text-xl font-bold mb-3 mt-0 text-foreground">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-base font-semibold mb-2 mt-4 text-foreground">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-sm font-semibold mb-1.5 mt-3 text-foreground">{children}</h3>,
+                p: ({ children }) => <p className="mb-3 text-foreground/90 leading-relaxed">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-foreground/90">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-foreground/90">{children}</ol>,
+                li: ({ children }) => <li className="text-foreground/90">{children}</li>,
+                blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground mb-3">{children}</blockquote>,
+                code: ({ children, className }) => className
+                  ? <code className="block bg-muted rounded-lg p-3 text-xs font-mono overflow-auto mb-3">{children}</code>
+                  : <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground">{children}</code>,
+                strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                a: ({ children, href }) => <a href={href} className="text-primary underline underline-offset-2 hover:text-primary/80" target="_blank" rel="noopener noreferrer">{children}</a>,
+                hr: () => <hr className="border-border my-4" />,
+                input: ({ type, checked }) => type === "checkbox"
+                  ? <input type="checkbox" checked={checked} readOnly className="mr-1.5 accent-primary" />
+                  : null,
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          ) : (
+            <p className="text-muted-foreground/50 italic text-sm">Sem conteúdo. Clique para editar.</p>
+          )}
+        </div>
+      ) : (
+        <Textarea
+          value={content}
+          onChange={handleContentChange}
+          placeholder={"Escreva o conteúdo da nota…\n\nSuporta Markdown."}
+          className="min-h-[380px] resize-none rounded-xl bg-card font-mono text-sm leading-relaxed border-border focus-visible:ring-primary/50"
+          onClick={() => setShowTemplates(false)}
+        />
+      )}
 
       {/* Tags */}
       <div className="flex flex-col gap-2">

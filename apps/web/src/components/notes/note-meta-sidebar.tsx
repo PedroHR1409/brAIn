@@ -35,6 +35,7 @@ interface NoteMetaSidebarProps {
   onArchive: () => void;
   onDelete: () => void;
   onRemoveConnection: (id: string) => void;
+  onAddConnection: (toNoteId: string) => Promise<void>;
 }
 
 const statusLabel: Record<string, { icon: React.ReactNode; label: string }> = {
@@ -64,6 +65,7 @@ export function NoteMetaSidebar({
   onArchive,
   onDelete,
   onRemoveConnection,
+  onAddConnection,
 }: NoteMetaSidebarProps) {
   const status = statusLabel[note.status] ?? statusLabel.inbox;
 
@@ -160,9 +162,11 @@ export function NoteMetaSidebar({
 
       {/* Connections */}
       <ConnectionsPanel
+        noteId={note.id}
         connections={connections}
         loading={connectionsLoading}
         onRemove={onRemoveConnection}
+        onAdd={onAddConnection}
       />
 
       <Separator />
