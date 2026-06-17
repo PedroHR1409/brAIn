@@ -107,11 +107,15 @@ export function QuickCaptureModal() {
   }
 
   async function handleSave() {
+    if (!title.trim() || loading) return;
     try {
+      // Permanent notes and PARA-categorized notes skip inbox — they're already processed
+      const status = type === "permanent" || !!para ? "active" : undefined;
       await create({
         title,
         content,
         type,
+        status,
         sourceType: type === "literature" ? sourceType : undefined,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         para: para || undefined,
@@ -142,8 +146,16 @@ export function QuickCaptureModal() {
         Captura rápida
       </Button>
 
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
-        <DialogContent className="sm:max-w-lg" showCloseButton>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}
+        // biome-ignore lint/a11y/useKeyWithClickEvents: handled via onKeyDown in content
+      >
+        <DialogContent
+          className="sm:max-w-lg"
+          showCloseButton
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSave();
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">{modalTitle}</DialogTitle>
           </DialogHeader>

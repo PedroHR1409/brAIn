@@ -1,20 +1,54 @@
 import { useRef, useState } from "react";
-import { Tag, X } from "lucide-react";
+import { Tag, X, LayoutTemplate, ChevronDown } from "lucide-react";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { Input } from "@my-better-t-app/ui/components/input";
 import { Textarea } from "@my-better-t-app/ui/components/textarea";
+import { Button } from "@my-better-t-app/ui/components/button";
 import { TagBadge } from "@/components/notes/tag-badge";
 import type { ApiNote } from "@/lib/api";
 
 interface NoteEditorProps {
   note: ApiNote;
-  loading?: boolean;
   onUpdate: (fields: { title?: string; content?: string; tags?: string[] }) => void;
 }
 
+// ─── Templates ────────────────────────────────────────────────────────────────
+
+const TEMPLATES = [
+  { id: "fleeting",   label: "Fleeting Note",   content: "" },
+  { id: "literature", label: "Literature Note",  content: "## Resumo\n\n\n## Citação relevante\n\n\n## Minha visão\n\n" },
+  { id: "permanent",  label: "Permanent Note",   content: "## Ideia principal\n\n\n## Evidência / Raciocínio\n\n\n## Conexões\n\n" },
+  { id: "project",    label: "Projeto",          content: "## Objetivo\n\n\n## Por que isso importa\n\n\n## Próximos passos\n- [ ] \n\n## Referências\n\n" },
+  { id: "area",       label: "Área",             content: "## Descrição\n\n\n## Padrões e responsabilidades\n\n\n## Referências\n\n" },
+  { id: "resource",   label: "Recurso",          content: "## Sobre o recurso\n\n\n## Pontos principais\n\n\n## Aplicação prática\n\n" },
+] as const;
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function NoteEditor({ note, onUpdate }: NoteEditorProps) {
+  // Local state — parent re-renders (e.g., after auto-save) don't touch the inputs
+  const [title, setTitle] = useState(note.title);
+  const [content, setContent] = useState(note.content ?? "");
   const [tagInput, setTagInput] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+
   const tagInputRef = useRef<HTMLInputElement>(null);
+
+  function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setTitle(e.target.value);
+    onUpdate({ title: e.target.value });
+  }
+
+  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setContent(e.target.value);
+    onUpdate({ content: e.target.value });
+  }
+
+  function applyTemplate(templateContent: string) {
+    setContent(templateContent);
+    onUpdate({ content: templateContent });
+    setShowTemplates(false);
+  }
 
   function addTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
@@ -41,17 +75,49 @@ export function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       {/* Title */}
       <input
         className="w-full bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground/40 outline-none border-none resize-none"
-        value={note.title}
-        onChange={(e) => onUpdate({ title: e.target.value })}
+        value={title}
+        onChange={handleTitleChange}
         placeholder="Título da nota…"
       />
 
+      {/* Content toolbar */}
+      <div className="flex items-center justify-between -mb-2">
+        <span className="text-[11px] text-muted-foreground">Conteúdo</span>
+        <div className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={() => setShowTemplates((v) => !v)}
+          >
+            <LayoutTemplate className="size-3" />
+            Templates
+            <ChevronDown className="size-3" />
+          </Button>
+
+          {showTemplates && (
+            <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
+              {TEMPLATES.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => applyTemplate(t.content)}
+                  className="flex w-full items-center px-3 py-2 text-xs text-left hover:bg-accent transition-colors"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Content */}
       <Textarea
-        value={note.content ?? ""}
-        onChange={(e) => onUpdate({ content: e.target.value })}
-        placeholder="Escreva o conteúdo da nota…&#10;&#10;Suporta Markdown."
+        value={content}
+        onChange={handleContentChange}
+        placeholder={"Escreva o conteúdo da nota…\n\nSuporta Markdown."}
         className="min-h-[380px] resize-none rounded-xl bg-card font-mono text-sm leading-relaxed border-border focus-visible:ring-primary/50"
+        onClick={() => setShowTemplates(false)}
       />
 
       {/* Tags */}

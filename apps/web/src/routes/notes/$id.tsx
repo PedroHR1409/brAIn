@@ -19,7 +19,7 @@ function NoteDetailPage() {
   const navigate = useNavigate();
   const router = useRouter();
 
-  const { note, loading, saving, error, update, processNote } = useNote(id);
+  const { note, loading, saving, processing, error, update, processNote } = useNote(id);
   const { connections, loading: connLoading, remove: removeConnection } = useConnections(id);
   const { remove: deleteNote } = useDeleteNote();
 
@@ -90,6 +90,7 @@ function NoteDetailPage() {
             <NoteEditorSkeleton />
           ) : note ? (
             <NoteEditor
+              key={note.id}
               note={note}
               onUpdate={update}
             />
@@ -110,6 +111,7 @@ function NoteDetailPage() {
             <NoteMetaSidebar
               note={note}
               saving={saving}
+              processing={processing}
               connections={connections}
               connectionsLoading={connLoading}
               onUpdate={update}

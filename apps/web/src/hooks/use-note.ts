@@ -6,8 +6,12 @@ export function useNote(id: string) {
   const [note, setNote] = useState<ApiNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Ref so update() never has stale closure over note state
+  const noteRef = useRef<ApiNote | null>(null);
 
   const fetchNote = useCallback(async () => {
     setLoading(true);
@@ -15,6 +19,7 @@ export function useNote(id: string) {
     try {
       const data = await api.notes.get(id);
       setNote(data);
+      noteRef.current = data;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar nota");
     } finally {
@@ -26,11 +31,13 @@ export function useNote(id: string) {
     fetchNote();
   }, [fetchNote]);
 
+  // update depends only on id, not on note state — no more stale closure
   const update = useCallback(
     (fields: Partial<CreateNoteBody>) => {
-      if (!note) return;
-      const optimistic = { ...note, ...fields } as ApiNote;
+      if (!noteRef.current) return;
+      const optimistic = { ...noteRef.current, ...fields } as ApiNote;
       setNote(optimistic);
+      noteRef.current = optimistic;
 
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
       saveTimeout.current = setTimeout(async () => {
@@ -38,6 +45,7 @@ export function useNote(id: string) {
         try {
           const saved = await api.notes.update(id, fields);
           setNote(saved);
+          noteRef.current = saved;
           brainEvents.emit("note-updated");
         } catch (e) {
           setError(e instanceof Error ? e.message : "Erro ao salvar");
@@ -46,23 +54,25 @@ export function useNote(id: string) {
         }
       }, 600);
     },
-    [id, note],
+    [id],
   );
 
+  // processNote uses separate processing state so action buttons stay enabled during auto-save
   const processNote = useCallback(
     async (type: "literature" | "permanent") => {
-      setSaving(true);
+      setProcessing(true);
       try {
         const saved = await api.notes.process(id, { type });
         setNote(saved);
+        noteRef.current = saved;
         brainEvents.emit("note-updated");
         return saved;
       } finally {
-        setSaving(false);
+        setProcessing(false);
       }
     },
     [id],
   );
 
-  return { note, loading, saving, error, update, processNote, refetch: fetchNote };
+  return { note, loading, saving, processing, error, update, processNote, refetch: fetchNote };
 }

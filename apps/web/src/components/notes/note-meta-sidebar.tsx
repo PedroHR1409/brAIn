@@ -27,6 +27,7 @@ import type { NoteConnection } from "@/hooks/use-connections";
 interface NoteMetaSidebarProps {
   note: ApiNote;
   saving: boolean;
+  processing: boolean;
   connections: NoteConnection[];
   connectionsLoading: boolean;
   onUpdate: (patch: Partial<CreateNoteBody>) => void;
@@ -55,6 +56,7 @@ const PARA_OPTIONS = [
 export function NoteMetaSidebar({
   note,
   saving,
+  processing,
   connections,
   connectionsLoading,
   onUpdate,
@@ -173,7 +175,7 @@ export function NoteMetaSidebar({
               size="sm"
               className="w-full gap-2 justify-start"
               onClick={() => handlePromote("literature")}
-              disabled={saving}
+              disabled={processing}
             >
               <ArrowUpCircle className="size-3.5" />
               Promover para Literature
@@ -183,7 +185,7 @@ export function NoteMetaSidebar({
               variant="outline"
               className="w-full gap-2 justify-start text-note-permanent border-note-permanent/30 hover:bg-note-permanent/10"
               onClick={() => handlePromote("permanent")}
-              disabled={saving}
+              disabled={processing}
             >
               <Zap className="size-3.5" />
               Promover para Permanent
@@ -197,7 +199,7 @@ export function NoteMetaSidebar({
             variant="outline"
             className="w-full gap-2 justify-start text-note-permanent border-note-permanent/30 hover:bg-note-permanent/10"
             onClick={() => handlePromote("permanent")}
-            disabled={saving}
+            disabled={processing}
           >
             <Zap className="size-3.5" />
             Promover para Permanent
@@ -209,7 +211,7 @@ export function NoteMetaSidebar({
           variant="ghost"
           className="w-full gap-2 justify-start text-muted-foreground"
           onClick={onArchive}
-          disabled={saving}
+          disabled={processing}
         >
           <Archive className="size-3.5" />
           Arquivar
@@ -220,7 +222,7 @@ export function NoteMetaSidebar({
           variant="ghost"
           className="w-full gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={onDelete}
-          disabled={saving}
+          disabled={processing}
         >
           <Trash2 className="size-3.5" />
           Excluir nota
