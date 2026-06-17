@@ -1,0 +1,212 @@
+import {
+  Calendar,
+  Zap,
+  BarChart2,
+  Inbox,
+  CheckCircle,
+  Archive,
+  Pause,
+  Trash2,
+  ArrowUpCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Separator } from "@my-better-t-app/ui/components/separator";
+import { Button } from "@my-better-t-app/ui/components/button";
+import { NoteTypeBadge } from "@/components/notes/note-type-badge";
+import { ConnectionsPanel } from "@/components/notes/connections-panel";
+import type { ApiNote } from "@/lib/api";
+import type { NoteConnection } from "@/hooks/use-connections";
+
+interface NoteMetaSidebarProps {
+  note: ApiNote;
+  saving: boolean;
+  connections: NoteConnection[];
+  connectionsLoading: boolean;
+  onProcess: (type: "literature" | "permanent") => Promise<ApiNote | undefined>;
+  onArchive: () => void;
+  onDelete: () => void;
+  onRemoveConnection: (id: string) => void;
+}
+
+const statusLabel: Record<string, { icon: React.ReactNode; label: string }> = {
+  inbox: { icon: <Inbox className="size-3" />, label: "Inbox" },
+  active: { icon: <CheckCircle className="size-3" />, label: "Ativa" },
+  on_hold: { icon: <Pause className="size-3" />, label: "Em espera" },
+  done: { icon: <CheckCircle className="size-3" />, label: "Concluída" },
+  archived: { icon: <Archive className="size-3" />, label: "Arquivada" },
+};
+
+export function NoteMetaSidebar({
+  note,
+  saving,
+  connections,
+  connectionsLoading,
+  onProcess,
+  onArchive,
+  onDelete,
+  onRemoveConnection,
+}: NoteMetaSidebarProps) {
+  const status = statusLabel[note.status] ?? statusLabel.inbox;
+
+  async function handlePromote(type: "literature" | "permanent") {
+    try {
+      await onProcess(type);
+      toast.success(
+        type === "permanent"
+          ? "Promovida para Permanent Note!"
+          : "Promovida para Literature Note!",
+      );
+    } catch {
+      toast.error("Erro ao processar nota.");
+    }
+  }
+
+  return (
+    <aside className="flex flex-col gap-5 rounded-xl border border-border bg-card p-4 h-fit sticky top-6">
+      {/* Type & Status */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <NoteTypeBadge type={note.type} />
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            {status.icon}
+            {status.label}
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Strength */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <BarChart2 className="size-3" />
+          Força da nota
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${note.strength}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-mono text-muted-foreground tabular-nums w-7 text-right">
+            {note.strength}%
+          </span>
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Calendar className="size-3" />
+          Datas
+        </div>
+        <div className="space-y-1 text-[10px] text-muted-foreground">
+          <div className="flex justify-between">
+            <span>Criada</span>
+            <span className="font-mono">{formatDate(note.createdAt)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Atualizada</span>
+            <span className="font-mono">{formatDate(note.updatedAt)}</span>
+          </div>
+          {note.processedAt && (
+            <div className="flex justify-between">
+              <span>Processada</span>
+              <span className="font-mono">{formatDate(note.processedAt)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Connections */}
+      <ConnectionsPanel
+        connections={connections}
+        loading={connectionsLoading}
+        onRemove={onRemoveConnection}
+      />
+
+      <Separator />
+
+      {/* Actions */}
+      <div className="flex flex-col gap-2">
+        {note.type === "fleeting" && (
+          <>
+            <Button
+              size="sm"
+              className="w-full gap-2 justify-start"
+              onClick={() => handlePromote("literature")}
+              disabled={saving}
+            >
+              <ArrowUpCircle className="size-3.5" />
+              Promover para Literature
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full gap-2 justify-start text-note-permanent border-note-permanent/30 hover:bg-note-permanent/10"
+              onClick={() => handlePromote("permanent")}
+              disabled={saving}
+            >
+              <Zap className="size-3.5" />
+              Promover para Permanent
+            </Button>
+          </>
+        )}
+
+        {note.type === "literature" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full gap-2 justify-start text-note-permanent border-note-permanent/30 hover:bg-note-permanent/10"
+            onClick={() => handlePromote("permanent")}
+            disabled={saving}
+          >
+            <Zap className="size-3.5" />
+            Promover para Permanent
+          </Button>
+        )}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          className="w-full gap-2 justify-start text-muted-foreground"
+          onClick={onArchive}
+          disabled={saving}
+        >
+          <Archive className="size-3.5" />
+          Arquivar
+        </Button>
+
+        <Button
+          size="sm"
+          variant="ghost"
+          className="w-full gap-2 justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={onDelete}
+          disabled={saving}
+        >
+          <Trash2 className="size-3.5" />
+          Excluir nota
+        </Button>
+      </div>
+
+      {saving && (
+        <p className="text-[10px] text-muted-foreground text-center animate-pulse">
+          Salvando…
+        </p>
+      )}
+    </aside>
+  );
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
