@@ -8,13 +8,20 @@ import {
   Pause,
   Trash2,
   ArrowUpCircle,
+  Briefcase,
+  Globe,
+  BookOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Separator } from "@my-better-t-app/ui/components/separator";
 import { Button } from "@my-better-t-app/ui/components/button";
+import {
+  NativeSelect,
+  NativeSelectOption,
+} from "@my-better-t-app/ui/components/native-select";
 import { NoteTypeBadge } from "@/components/notes/note-type-badge";
 import { ConnectionsPanel } from "@/components/notes/connections-panel";
-import type { ApiNote } from "@/lib/api";
+import type { ApiNote, CreateNoteBody } from "@/lib/api";
 import type { NoteConnection } from "@/hooks/use-connections";
 
 interface NoteMetaSidebarProps {
@@ -22,6 +29,7 @@ interface NoteMetaSidebarProps {
   saving: boolean;
   connections: NoteConnection[];
   connectionsLoading: boolean;
+  onUpdate: (patch: Partial<CreateNoteBody>) => void;
   onProcess: (type: "literature" | "permanent") => Promise<ApiNote | undefined>;
   onArchive: () => void;
   onDelete: () => void;
@@ -36,11 +44,20 @@ const statusLabel: Record<string, { icon: React.ReactNode; label: string }> = {
   archived: { icon: <Archive className="size-3" />, label: "Arquivada" },
 };
 
+const PARA_OPTIONS = [
+  { value: "", label: "Nenhuma" },
+  { value: "project", label: "Projeto", icon: Briefcase },
+  { value: "area", label: "Área", icon: Globe },
+  { value: "resource", label: "Recurso", icon: BookOpen },
+  { value: "archive", label: "Archive", icon: Archive },
+] as const;
+
 export function NoteMetaSidebar({
   note,
   saving,
   connections,
   connectionsLoading,
+  onUpdate,
   onProcess,
   onArchive,
   onDelete,
@@ -72,6 +89,24 @@ export function NoteMetaSidebar({
             {status.label}
           </div>
         </div>
+      </div>
+
+      <Separator />
+
+      {/* PARA category */}
+      <div className="flex flex-col gap-1.5">
+        <p className="text-[11px] text-muted-foreground font-medium">Categoria PARA</p>
+        <NativeSelect
+          value={note.para ?? ""}
+          onChange={(e) => onUpdate({ para: e.target.value || undefined })}
+          className="text-xs"
+        >
+          {PARA_OPTIONS.map((opt) => (
+            <NativeSelectOption key={opt.value} value={opt.value}>
+              {opt.label}
+            </NativeSelectOption>
+          ))}
+        </NativeSelect>
       </div>
 
       <Separator />

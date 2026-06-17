@@ -20,23 +20,33 @@ import { useCreateNote } from "@/hooks/use-notes";
 import { brainEvents } from "@/lib/events";
 import type { NoteType, SourceType } from "@/types/brain";
 
+type ParaCategory = "project" | "area" | "resource" | "archive" | "";
+
 export function QuickCaptureModal() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [type, setType] = useState<NoteType>("fleeting");
   const [sourceType, setSourceType] = useState<SourceType>("other");
+  const [para, setPara] = useState<ParaCategory>("");
   const [tags, setTags] = useState("");
 
   const { create, loading } = useCreateNote();
 
-  useEffect(() => brainEvents.on("open-capture", () => setOpen(true)), []);
+  useEffect(() =>
+    brainEvents.on("open-capture", (detail?: unknown) => {
+      const d = detail as { para?: string } | undefined;
+      if (d?.para) setPara(d.para as ParaCategory);
+      setOpen(true);
+    }),
+  []);
 
   function reset() {
     setTitle("");
     setContent("");
     setTags("");
     setType("fleeting");
+    setPara("");
   }
 
   async function handleSave() {
@@ -47,6 +57,7 @@ export function QuickCaptureModal() {
         type,
         sourceType: type === "literature" ? sourceType : undefined,
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+        para: para || undefined,
       });
       toast.success("Nota salva!");
       setOpen(false);
@@ -68,7 +79,7 @@ export function QuickCaptureModal() {
         Captura rápida
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-lg" showCloseButton>
           <DialogHeader>
             <DialogTitle className="text-base font-semibold">
@@ -112,7 +123,7 @@ export function QuickCaptureModal() {
                 </NativeSelect>
               </div>
 
-              {type === "literature" && (
+              {type === "literature" ? (
                 <div className="grid gap-1.5">
                   <Label>Fonte</Label>
                   <NativeSelect
@@ -123,6 +134,20 @@ export function QuickCaptureModal() {
                     <NativeSelectOption value="book">Livro</NativeSelectOption>
                     <NativeSelectOption value="podcast">Podcast</NativeSelectOption>
                     <NativeSelectOption value="other">Outro</NativeSelectOption>
+                  </NativeSelect>
+                </div>
+              ) : (
+                <div className="grid gap-1.5">
+                  <Label>Categoria (PARA)</Label>
+                  <NativeSelect
+                    value={para}
+                    onChange={(e) => setPara(e.target.value as ParaCategory)}
+                  >
+                    <NativeSelectOption value="">Nenhuma</NativeSelectOption>
+                    <NativeSelectOption value="project">Projeto</NativeSelectOption>
+                    <NativeSelectOption value="area">Área</NativeSelectOption>
+                    <NativeSelectOption value="resource">Recurso</NativeSelectOption>
+                    <NativeSelectOption value="archive">Archive</NativeSelectOption>
                   </NativeSelect>
                 </div>
               )}

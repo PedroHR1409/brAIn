@@ -112,6 +112,7 @@ function NoteDetailPage() {
               saving={saving}
               connections={connections}
               connectionsLoading={connLoading}
+              onUpdate={update}
               onProcess={processNote}
               onArchive={handleArchive}
               onDelete={handleDelete}

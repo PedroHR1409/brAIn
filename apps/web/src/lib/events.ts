@@ -5,14 +5,14 @@ type BrainEvent =
   | "open-palette"
   | "open-capture";
 
-/** Lightweight event bus to decouple note mutations from list refetches */
 export const brainEvents = {
-  emit(event: BrainEvent) {
-    window.dispatchEvent(new CustomEvent(`brain:${event}`));
+  emit(event: BrainEvent, detail?: unknown) {
+    window.dispatchEvent(new CustomEvent(`brain:${event}`, { detail }));
   },
-  on(event: BrainEvent, handler: () => void) {
+  on(event: BrainEvent, handler: (detail?: unknown) => void) {
     const key = `brain:${event}`;
-    window.addEventListener(key, handler);
-    return () => window.removeEventListener(key, handler);
+    const listener = (e: Event) => handler((e as CustomEvent).detail);
+    window.addEventListener(key, listener);
+    return () => window.removeEventListener(key, listener);
   },
 };

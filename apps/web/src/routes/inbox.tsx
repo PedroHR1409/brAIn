@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Inbox, AlertTriangle, CheckCircle, Briefcase, Globe, BookOpen, Archive } from "lucide-react";
+import { Inbox, AlertTriangle, CheckCircle, Briefcase, Globe, BookOpen, Archive, Plus } from "lucide-react";
+import { brainEvents } from "@/lib/events";
 import { toast } from "sonner";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { Button } from "@my-better-t-app/ui/components/button";
@@ -89,6 +90,16 @@ function InboxPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
+        {para && (
+          <Button
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => brainEvents.emit("open-capture", { para })}
+          >
+            <Plus className="size-3.5" />
+            Nova nota
+          </Button>
+        )}
       </div>
 
       {/* Overdue warning — only in inbox mode */}

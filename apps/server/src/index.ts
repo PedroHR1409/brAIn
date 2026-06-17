@@ -11,11 +11,24 @@ import { vaultRouter } from "./routes/vault";
 
 const app = express();
 
+const allowedOrigins = [
+  env.CORS_ORIGIN,
+  "http://localhost:5173",
+  "http://localhost:3001",
+];
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin not allowed — ${origin}`));
+      }
+    },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   }),
 );
 
