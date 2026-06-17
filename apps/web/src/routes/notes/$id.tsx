@@ -36,9 +36,9 @@ function NoteDetailPage() {
 
   async function handleArchive() {
     try {
-      await api.notes.update(id, { status: "archived" });
+      await api.notes.update(id, { status: "archived", para: "archive" });
       toast.success("Nota arquivada.");
-      navigate({ to: "/inbox" });
+      navigate({ to: "/inbox", search: { para: "archive" } });
     } catch {
       toast.error("Erro ao arquivar nota.");
     }

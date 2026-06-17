@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@my-better-t-app/ui/components/button";
@@ -22,6 +22,47 @@ import type { NoteType, SourceType } from "@/types/brain";
 
 type ParaCategory = "project" | "area" | "resource" | "archive" | "";
 
+// ─── Templates ────────────────────────────────────────────────────────────────
+
+const TYPE_TEMPLATES: Record<NoteType, string> = {
+  fleeting: "",
+  literature: "## Resumo\n\n\n## Citação relevante\n\n\n## Minha visão\n\n",
+  permanent: "## Ideia principal\n\n\n## Evidência / Raciocínio\n\n\n## Conexões\n\n",
+};
+
+const TYPE_TITLE_PLACEHOLDER: Record<NoteType, string> = {
+  fleeting: "O que está na sua cabeça?",
+  literature: "Título do livro, artigo, podcast...",
+  permanent: "Qual é a ideia central? (seja específico)",
+};
+
+const PARA_CONFIG: Record<string, { type: NoteType; content: string; titlePlaceholder: string }> = {
+  project: {
+    type: "permanent",
+    content: "## Objetivo\n\n\n## Por que isso importa\n\n\n## Próximos passos\n- [ ] \n\n## Referências\n\n",
+    titlePlaceholder: "Nome do projeto",
+  },
+  area: {
+    type: "permanent",
+    content: "## Descrição\n\n\n## Padrões e responsabilidades\n\n\n## Referências\n\n",
+    titlePlaceholder: "Nome da área (ex: Saúde, Finanças, Trabalho)",
+  },
+  resource: {
+    type: "literature",
+    content: "## Sobre o recurso\n\n\n## Pontos principais\n\n\n## Aplicação prática\n\n",
+    titlePlaceholder: "Nome do recurso ou tópico",
+  },
+};
+
+const ALL_TEMPLATES = new Set(
+  [
+    ...Object.values(TYPE_TEMPLATES),
+    ...Object.values(PARA_CONFIG).map((c) => c.content),
+  ].filter(Boolean),
+);
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function QuickCaptureModal() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -30,16 +71,31 @@ export function QuickCaptureModal() {
   const [sourceType, setSourceType] = useState<SourceType>("other");
   const [para, setPara] = useState<ParaCategory>("");
   const [tags, setTags] = useState("");
+  const prevType = useRef<NoteType>("fleeting");
 
   const { create, loading } = useCreateNote();
 
   useEffect(() =>
     brainEvents.on("open-capture", (detail?: unknown) => {
       const d = detail as { para?: string } | undefined;
-      if (d?.para) setPara(d.para as ParaCategory);
+      if (d?.para && d.para in PARA_CONFIG) {
+        const cfg = PARA_CONFIG[d.para];
+        setPara(d.para as ParaCategory);
+        setType(cfg.type);
+        setContent(cfg.content);
+        prevType.current = cfg.type;
+      }
       setOpen(true);
     }),
   []);
+
+  function handleTypeChange(newType: NoteType) {
+    setType(newType);
+    prevType.current = newType;
+    if (!content || ALL_TEMPLATES.has(content)) {
+      setContent(TYPE_TEMPLATES[newType]);
+    }
+  }
 
   function reset() {
     setTitle("");
@@ -47,6 +103,7 @@ export function QuickCaptureModal() {
     setTags("");
     setType("fleeting");
     setPara("");
+    prevType.current = "fleeting";
   }
 
   async function handleSave() {
@@ -67,6 +124,12 @@ export function QuickCaptureModal() {
     }
   }
 
+  const paraConfig = para && para in PARA_CONFIG ? PARA_CONFIG[para] : null;
+  const titlePlaceholder = paraConfig?.titlePlaceholder ?? TYPE_TITLE_PLACEHOLDER[type];
+  const modalTitle = paraConfig
+    ? { project: "Novo projeto", area: "Nova área", resource: "Novo recurso" }[para as string] ?? "Captura rápida"
+    : "Captura rápida";
+
   return (
     <>
       <Button
@@ -82,17 +145,20 @@ export function QuickCaptureModal() {
       <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent className="sm:max-w-lg" showCloseButton>
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">
-              Captura rápida
-            </DialogTitle>
+            <DialogTitle className="text-base font-semibold">{modalTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="note-title">Ideia central (uma frase) *</Label>
+              <Label htmlFor="note-title">
+                {para === "project" ? "Nome do projeto *" :
+                 para === "area" ? "Nome da área *" :
+                 para === "resource" ? "Nome do recurso *" :
+                 "Ideia central (uma frase) *"}
+              </Label>
               <Input
                 id="note-title"
-                placeholder="O que está na sua cabeça?"
+                placeholder={titlePlaceholder}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 autoFocus
@@ -100,13 +166,15 @@ export function QuickCaptureModal() {
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="note-content">Detalhes (opcional)</Label>
+              <Label htmlFor="note-content">
+                {para ? "Detalhes" : "Detalhes (opcional)"}
+              </Label>
               <Textarea
                 id="note-content"
-                placeholder="Expanda o pensamento..."
+                placeholder={para ? "" : "Expanda o pensamento..."}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="min-h-24 resize-none"
+                className="min-h-32 resize-none font-mono text-xs"
               />
             </div>
 
@@ -115,7 +183,7 @@ export function QuickCaptureModal() {
                 <Label>Tipo</Label>
                 <NativeSelect
                   value={type}
-                  onChange={(e) => setType(e.target.value as NoteType)}
+                  onChange={(e) => handleTypeChange(e.target.value as NoteType)}
                 >
                   <NativeSelectOption value="fleeting">Fleeting Note</NativeSelectOption>
                   <NativeSelectOption value="literature">Literature Note</NativeSelectOption>

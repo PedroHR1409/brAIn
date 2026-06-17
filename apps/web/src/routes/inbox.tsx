@@ -45,7 +45,11 @@ function InboxPage() {
   const { para } = Route.useSearch();
   const [filter, setFilter] = useState<FilterType>("all");
 
-  const notesParams = para ? { para } : { status: "inbox" };
+  const notesParams = para === "archive"
+    ? { status: "archived" }
+    : para
+    ? { para }
+    : { status: "inbox" };
   const { notes: allNotes, loading } = useNotes(notesParams);
   const { process, loading: processing } = useProcessNote();
 
