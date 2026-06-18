@@ -1,9 +1,9 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install"
+buildCommand = "npm install --include=dev && cd apps/server && npx tsdown"
 
 [deploy]
-startCommand = "npx tsx apps/server/src/index.ts"
+startCommand = "node apps/server/dist/index.mjs"
 healthcheckPath = "/"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"

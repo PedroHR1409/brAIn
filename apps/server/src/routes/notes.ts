@@ -162,6 +162,32 @@ notesRouter.get("/", async (req, res) => {
   return res.json({ data, total: data.length, limit, offset });
 });
 
+// ─── GET /notes/todos ─────────────────────────────────────────────────────────
+// MUST be before /:id so Express doesn't treat "todos" as a note ID
+
+notesRouter.get("/todos", async (_req, res) => {
+  const rows = await db
+    .select({ id: notes.id, title: notes.title, content: notes.content })
+    .from(notes)
+    .where(
+      sql`(${notes.content} LIKE '%- [ ] %' OR ${notes.content} LIKE '%* [ ] %')`,
+    )
+    .orderBy(desc(notes.updatedAt))
+    .limit(200);
+
+  const todos: { noteId: string; noteTitle: string; text: string; lineIndex: number }[] = [];
+
+  for (const note of rows) {
+    const lines = note.content.split("\n");
+    lines.forEach((line, lineIndex) => {
+      const m = line.match(/^\s*[-*] \[ \] (.+)/);
+      if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1]!.trim(), lineIndex });
+    });
+  }
+
+  return res.json({ todos: todos.slice(0, 30) });
+});
+
 // ─── GET /notes/:id ───────────────────────────────────────────────────────────
 
 notesRouter.get("/:id", async (req, res) => {
@@ -272,33 +298,6 @@ notesRouter.delete("/:id", async (req, res) => {
   const deleted = await db.delete(notes).where(eq(notes.id, req.params.id)).returning({ id: notes.id });
   if (deleted.length === 0) return res.status(404).json({ error: "Note not found" });
   return res.status(204).send();
-});
-
-// ─── GET /notes/todos ─────────────────────────────────────────────────────────
-// Returns all pending (unchecked) todos across non-archived notes
-
-notesRouter.get("/todos", async (_req, res) => {
-  const rows = await db
-    .select({ id: notes.id, title: notes.title, content: notes.content })
-    .from(notes)
-    .where(
-      // match both "- [ ] " (tiptap-markdown / standard) and "* [ ] " (alternate bullet)
-      sql`(${notes.content} LIKE '%- [ ] %' OR ${notes.content} LIKE '%* [ ] %')`,
-    )
-    .orderBy(desc(notes.updatedAt))
-    .limit(200);
-
-  const todos: { noteId: string; noteTitle: string; text: string; lineIndex: number }[] = [];
-
-  for (const note of rows) {
-    const lines = note.content.split("\n");
-    lines.forEach((line, lineIndex) => {
-      const m = line.match(/^[-*] \[ \] (.+)/);
-      if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1]!.trim(), lineIndex });
-    });
-  }
-
-  return res.json({ todos: todos.slice(0, 30) });
 });
 
 // ─── PATCH /notes/:id/todos ───────────────────────────────────────────────────

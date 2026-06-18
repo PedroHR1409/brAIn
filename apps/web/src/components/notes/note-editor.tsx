@@ -36,9 +36,10 @@ const TEMPLATES = [
 ] as const;
 
 // ─── Wiki-link decoration extension ──────────────────────────────────────────
-// Finds [[Target]] and [[Target|Display]] patterns in the editor text and:
-//  1. Highlights them as clickable links (via CSS class)
-//  2. Handles click → navigate to the target note
+// Finds [[Target]] and [[Target|Display]] patterns and:
+//  - [[Target]] → entire text styled as a clickable link
+//  - [[Target|Display]] → hides "[[Target|" and "]]", shows only "Display" as link
+//  - When the cursor is INSIDE the wiki-link, shows raw text for editing
 
 const WIKI_LINK_RE = /\[\[([^\]|[\n]+?)(?:\|([^\][\n]*))?\]\]/g;
 const WIKI_PLUGIN_KEY = new PluginKey("wikiLinkDecoration");
@@ -53,23 +54,47 @@ function createWikiLinkExtension(onClickRef: React.RefObject<(target: string) =>
           props: {
             decorations(state) {
               const decos: Decoration[] = [];
+              const { from: curFrom, to: curTo } = state.selection;
+
               state.doc.descendants((node, pos) => {
                 if (!node.isText || !node.text) return;
                 WIKI_LINK_RE.lastIndex = 0;
                 let m: RegExpExecArray | null;
                 while ((m = WIKI_LINK_RE.exec(node.text)) !== null) {
-                  decos.push(
-                    Decoration.inline(pos + m.index, pos + m.index + m[0].length, {
+                  const start  = pos + m.index;
+                  const end    = start + m[0].length;
+                  const target = m[1]!.trim();
+                  const alias  = m[2]?.trim() ?? "";
+
+                  const cursorInside = curFrom >= start && curTo <= end;
+
+                  if (alias && !cursorInside) {
+                    // [[Target|Display]] outside cursor — hide prefix/suffix, style display text
+                    const pipeOffset = m[0].indexOf("|");
+                    const prefixEnd  = start + pipeOffset + 1;         // after "[[Target|"
+                    const displayEnd = prefixEnd + alias.length;       // after "Display"
+
+                    decos.push(Decoration.inline(start, prefixEnd, { class: "wiki-link-hidden" }));
+                    decos.push(Decoration.inline(prefixEnd, displayEnd, {
+                      class: "wiki-link-display",
+                      "data-wiki-target": target,
+                    }));
+                    decos.push(Decoration.inline(displayEnd, end, { class: "wiki-link-hidden" }));
+                  } else {
+                    // [[Target]] or cursor is inside → show full text styled as link
+                    decos.push(Decoration.inline(start, end, {
                       class: "wiki-link-inline",
-                      "data-wiki-target": m[1].trim(),
-                    }),
-                  );
+                      "data-wiki-target": target,
+                    }));
+                  }
                 }
               });
               return DecorationSet.create(state.doc, decos);
             },
             handleClick(_view, _pos, event) {
-              const el = (event.target as HTMLElement).closest(".wiki-link-inline");
+              const el = (event.target as HTMLElement).closest(
+                ".wiki-link-inline, .wiki-link-display",
+              );
               if (!el) return false;
               const target = el.getAttribute("data-wiki-target");
               if (target) onClickRef.current?.(target);

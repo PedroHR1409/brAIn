@@ -145,7 +145,8 @@
 /* ─── Wiki-links rendered inline by decoration ─────────────────────────────── */
 /* [[Note Name]] and [[Note Name|Display]] appear as styled clickable links     */
 
-.tiptap-brain-editor .wiki-link-inline {
+.tiptap-brain-editor .wiki-link-inline,
+.tiptap-brain-editor .wiki-link-display {
   color: var(--primary);
   border-bottom: 1px solid color-mix(in oklch, var(--primary) 40%, transparent);
   cursor: pointer;
@@ -154,7 +155,17 @@
   transition: color 0.15s, border-color 0.15s;
 }
 
-.tiptap-brain-editor .wiki-link-inline:hover {
+.tiptap-brain-editor .wiki-link-inline:hover,
+.tiptap-brain-editor .wiki-link-display:hover {
   color: color-mix(in oklch, var(--primary) 75%, transparent);
   border-bottom-color: color-mix(in oklch, var(--primary) 30%, transparent);
+}
+
+/* Hides [[Target| prefix and ]] suffix when alias is present */
+.tiptap-brain-editor .wiki-link-hidden {
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  pointer-events: none;
+  user-select: none;
 }
