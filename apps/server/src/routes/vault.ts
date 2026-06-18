@@ -1,7 +1,6 @@
 import { db, connections, notes } from "@my-better-t-app/db";
 import { count, sql } from "drizzle-orm";
 import { Router } from "express";
-import { ne } from "drizzle-orm";
 
 export const vaultRouter = Router();
 
@@ -48,10 +47,16 @@ vaultRouter.get("/stats", async (_req, res) => {
 // ─── GET /vault/graph ─────────────────────────────────────────────────────────
 
 vaultRouter.get("/graph", async (_req, res) => {
-  const [allNotes, allEdges] = await Promise.all([
+  const [allNotes, allConnectionRows] = await Promise.all([
     db.select({ id: notes.id, title: notes.title, type: notes.type }).from(notes),
-    db.select({ fromNoteId: connections.fromNoteId, toNoteId: connections.toNoteId }).from(connections),
+    // Use relational API — known to work correctly with camelCase field names
+    db.query.connections.findMany({ columns: { fromNoteId: true, toNoteId: true } }),
   ]);
+
+  const allEdges = allConnectionRows.map((c) => ({
+    fromNoteId: c.fromNoteId,
+    toNoteId: c.toNoteId,
+  }));
 
   const connectionCountMap = new Map<string, number>();
   for (const note of allNotes) connectionCountMap.set(note.id, 0);

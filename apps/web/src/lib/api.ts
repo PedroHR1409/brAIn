@@ -144,4 +144,11 @@ export const api = {
     stats: () => request<ApiVaultStats>("/vault/stats"),
     graph: () => request<{ nodes: ApiGraphNode[]; edges: ApiGraphEdge[] }>("/vault/graph"),
   },
+  ai: {
+    suggestAreas: (notes: Array<{ title: string; type: string; tags: string[] }>) =>
+      request<{ suggestions: string }>("/ai/suggest-areas", {
+        method: "POST",
+        body: JSON.stringify({ notes }),
+      }),
+  },
 };

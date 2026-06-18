@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Tag, X, LayoutTemplate, ChevronDown, Download } from "lucide-react";
+import { Tag, X, LayoutTemplate, ChevronDown, Download, Pencil } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
@@ -22,15 +22,14 @@ interface NoteEditorProps {
 
 const TEMPLATES = [
   { id: "fleeting",   label: "Fleeting Note",  content: "" },
-  { id: "literature", label: "Literature Note", content: "## Resumo\n\n\n## Citação relevante\n\n\n## Minha visão\n\n" },
-  { id: "permanent",  label: "Permanent Note",  content: "## Ideia principal\n\n\n## Evidência / Raciocínio\n\n\n## Conexões\n\n" },
-  { id: "project",    label: "Projeto",         content: "## Objetivo\n\n\n## Por que isso importa\n\n\n## Próximos passos\n- [ ] \n\n## Referências\n\n" },
-  { id: "area",       label: "Área",            content: "## Descrição\n\n\n## Padrões e responsabilidades\n\n\n## Referências\n\n" },
-  { id: "resource",   label: "Recurso",         content: "## Sobre o recurso\n\n\n## Pontos principais\n\n\n## Aplicação prática\n\n" },
+  { id: "literature", label: "Literature Note", content: "## Summary\n\n\n## Key Quote\n\n\n## My Take\n\n" },
+  { id: "permanent",  label: "Permanent Note",  content: "## Main Idea\n\n\n## Evidence / Reasoning\n\n\n## Connections\n\n" },
+  { id: "project",    label: "Project",         content: "## Goal\n\n\n## Why It Matters\n\n\n## Next Steps\n- [ ] \n\n## References\n\n" },
+  { id: "area",       label: "Area",            content: "## Description\n\n\n## Standards & Responsibilities\n\n\n## References\n\n" },
+  { id: "resource",   label: "Resource",        content: "## About\n\n\n## Key Points\n\n\n## Practical Application\n\n" },
 ] as const;
 
 // ─── Wiki-link preprocessing ──────────────────────────────────────────────────
-// Converts [[Title]] → [Title](wikilink:ENCODED) so ReactMarkdown can render them
 
 function preprocessWikiLinks(text: string): string {
   return text.replace(/\[\[([^\]]+)\]\]/g, (_, title) =>
@@ -38,7 +37,7 @@ function preprocessWikiLinks(text: string): string {
   );
 }
 
-// ─── Markdown component map ───────────────────────────────────────────────────
+// ─── Markdown components ──────────────────────────────────────────────────────
 
 function makeMarkdownComponents(onWikiClick: (title: string) => void) {
   return {
@@ -46,7 +45,7 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
       <h1 className="text-xl font-bold mb-3 mt-0 text-foreground">{children}</h1>
     ),
     h2: ({ children }: { children: React.ReactNode }) => (
-      <h2 className="text-base font-semibold mb-2 mt-4 text-foreground">{children}</h2>
+      <h2 className="text-base font-semibold mb-2 mt-5 text-foreground">{children}</h2>
     ),
     h3: ({ children }: { children: React.ReactNode }) => (
       <h3 className="text-sm font-semibold mb-1.5 mt-3 text-foreground">{children}</h3>
@@ -64,7 +63,7 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
       <li className="text-foreground/90">{children}</li>
     ),
     blockquote: ({ children }: { children: React.ReactNode }) => (
-      <blockquote className="border-l-2 border-primary/50 pl-3 italic text-muted-foreground mb-3">
+      <blockquote className="border-l-2 border-primary/50 pl-4 italic text-muted-foreground mb-3">
         {children}
       </blockquote>
     ),
@@ -74,7 +73,7 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
           {children}
         </code>
       ) : (
-        <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono text-foreground">
+        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground">
           {children}
         </code>
       ),
@@ -86,7 +85,7 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
         const title = decodeURIComponent(href.slice(9));
         return (
           <span
-            className="text-primary border-b border-primary/40 cursor-pointer hover:text-primary/70 transition-colors"
+            className="text-primary border-b border-primary/40 cursor-pointer hover:text-primary/70 transition-colors font-medium"
             onClick={(e) => { e.stopPropagation(); onWikiClick(title); }}
           >
             [[{title}]]
@@ -94,12 +93,7 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
         );
       }
       return (
-        <a
-          href={href}
-          className="text-primary underline underline-offset-2 hover:text-primary/80"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <a href={href} className="text-primary underline underline-offset-2 hover:text-primary/80" target="_blank" rel="noopener noreferrer">
           {children}
         </a>
       );
@@ -121,6 +115,9 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
   const [tagInput, setTagInput] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
 
+  // Preview vs edit — start in edit mode if note is empty
+  const [editing, setEditing] = useState(!note.content);
+
   // Wiki-link autocomplete
   const [wikiQuery, setWikiQuery] = useState<string | null>(null);
   const [wikiResults, setWikiResults] = useState<ApiNote[]>([]);
@@ -132,7 +129,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
 
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
 
-  // Search notes for wiki-link autocomplete
+  // Wiki-link search
   useEffect(() => {
     if (wikiQuery === null) { setWikiResults([]); return; }
     const delay = wikiQuery.length > 0 ? 180 : 0;
@@ -149,6 +146,17 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     return () => clearTimeout(timer);
   }, [wikiQuery, note.id]);
 
+  function enterEditMode() {
+    setEditing(true);
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const len = textareaRef.current.value.length;
+        textareaRef.current.setSelectionRange(len, len);
+      }
+    });
+  }
+
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value);
     onUpdate({ title: e.target.value });
@@ -158,12 +166,9 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     const val = e.target.value;
     const cursor = e.target.selectionStart ?? val.length;
     wikiCursorRef.current = cursor;
-
-    // Detect open wiki-link: [[ without closing ]]
     const before = val.slice(0, cursor);
     const wikiMatch = before.match(/\[\[([^\][\n]*)$/);
     setWikiQuery(wikiMatch ? wikiMatch[1] : null);
-
     setContent(val);
     onUpdate({ content: val });
   }
@@ -181,6 +186,18 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         return;
       }
     }
+    if (e.key === "Escape" && !wikiQuery) {
+      e.preventDefault();
+      setWikiQuery(null);
+      setWikiResults([]);
+      setEditing(false);
+    }
+  }
+
+  function handleBlur() {
+    setWikiQuery(null);
+    setWikiResults([]);
+    setEditing(false);
   }
 
   const selectWikiNote = useCallback((selected: ApiNote) => {
@@ -196,10 +213,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     onUpdate({ content: newContent });
     setWikiQuery(null);
     setWikiResults([]);
-
-    if (onAddConnection) {
-      onAddConnection(selected.id).catch(() => {});
-    }
+    if (onAddConnection) onAddConnection(selected.id).catch(() => {});
 
     const newPos = wikiStart + inserted.length;
     requestAnimationFrame(() => {
@@ -212,6 +226,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     setContent(templateContent);
     onUpdate({ content: templateContent });
     setShowTemplates(false);
+    enterEditMode();
   }
 
   function addTag(raw: string) {
@@ -262,13 +277,12 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         className="w-full bg-transparent text-2xl font-bold text-foreground placeholder:text-muted-foreground/40 outline-none border-none"
         value={title}
         onChange={handleTitleChange}
-        placeholder="Título da nota…"
+        placeholder="Note title…"
       />
 
       {/* Toolbar */}
       <div className="flex items-center justify-between -mb-2">
         <div className="flex items-center gap-1">
-          {/* Template picker */}
           <div className="relative">
             <Button
               variant="ghost"
@@ -302,28 +316,24 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             onClick={exportMarkdown}
           >
             <Download className="size-3" />
-            Exportar .md
+            Export .md
           </Button>
         </div>
 
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground select-none">
-          <span>{wordCount} {wordCount === 1 ? "palavra" : "palavras"}</span>
+          <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
           <span className="opacity-40">·</span>
           <span>{content.length} chars</span>
         </div>
       </div>
 
-      {/* Wiki-link autocomplete panel */}
+      {/* Wiki-link autocomplete */}
       {wikiQuery !== null && (
         <div className="rounded-xl border border-primary/30 bg-card shadow-lg overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2 bg-muted/30">
-            <span className="text-[11px] font-semibold text-primary">
-              Conectar nota via [[wikilink]]
-            </span>
+            <span className="text-[11px] font-semibold text-primary">Connect via [[wikilink]]</span>
             {wikiQuery && (
-              <span className="text-[10px] text-muted-foreground">
-                buscando &ldquo;{wikiQuery}&rdquo;
-              </span>
+              <span className="text-[10px] text-muted-foreground">searching &ldquo;{wikiQuery}&rdquo;</span>
             )}
             {wikiSearching && (
               <div className="ml-auto size-3 rounded-full border border-primary border-t-transparent animate-spin" />
@@ -332,15 +342,15 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
               className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors"
               onMouseDown={(e) => { e.preventDefault(); setWikiQuery(null); }}
             >
-              Esc para fechar
+              Esc to close
             </button>
           </div>
           {wikiResults.length === 0 && !wikiSearching ? (
             <p className="px-3 py-3 text-xs text-muted-foreground text-center">
-              {wikiQuery ? "Nenhuma nota encontrada." : "Digite para buscar notas…"}
+              {wikiQuery ? "No notes found." : "Type to search notes…"}
             </p>
           ) : (
-            <div className="flex flex-wrap gap-1 p-2">
+            <div className="flex flex-wrap gap-1.5 p-2.5">
               {wikiResults.map((n, idx) => (
                 <button
                   key={n.id}
@@ -353,7 +363,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
                   <span className={cn("size-2 rounded-full shrink-0", {
                     "bg-note-permanent": n.type === "permanent",
                     "bg-note-literature": n.type === "literature",
-                    "bg-amber-400": n.type === "fleeting",
+                    "bg-note-fleeting": n.type === "fleeting",
                   })} />
                   <span className="font-medium text-foreground">{n.title}</span>
                   <span className="text-[10px] text-muted-foreground">{n.type}</span>
@@ -361,51 +371,46 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
               ))}
             </div>
           )}
+          <div className="border-t border-border px-3 py-1.5">
+            <p className="text-[10px] text-muted-foreground">Enter to select the first result · Esc to close</p>
+          </div>
         </div>
       )}
 
-      {/* Split view: textarea | live preview */}
-      <div className="flex flex-col md:flex-row gap-0 rounded-xl border border-border overflow-hidden">
-        {/* Textarea — left */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-3 py-1.5 border-b border-border bg-muted/20 flex items-center gap-1.5">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Editor</span>
-            <span className="text-[10px] text-muted-foreground/60 ml-auto">Use [[nota]] para criar conexões</span>
+      {/* Content — single pane: preview or edit */}
+      {editing ? (
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onChange={handleContentChange}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          placeholder={"Write here…\n\nFull Markdown support: **bold**, *italic*, ## headings, - lists, ```code```\n\nUse [[Note Name]] to connect notes."}
+          className="min-h-[480px] w-full resize-none rounded-xl border border-border bg-card p-5 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 transition-colors"
+          onClick={() => setShowTemplates(false)}
+        />
+      ) : (
+        <div
+          className="min-h-[480px] rounded-xl border border-border bg-card p-5 text-sm leading-relaxed cursor-text group relative"
+          onClick={enterEditMode}
+        >
+          {/* Edit hint on hover */}
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 rounded-md bg-muted/80 px-2 py-1 text-[10px] text-muted-foreground">
+            <Pencil className="size-3" />
+            Click to edit
           </div>
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={handleContentChange}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setShowTemplates(false)}
-            placeholder={"Escreva aqui…\n\nSuporte completo a Markdown: **negrito**, *itálico*, ## cabeçalhos, - listas, ```código```\n\nUse [[Nome da Nota]] para conectar notas."}
-            className="flex-1 min-h-[420px] w-full resize-none bg-transparent p-4 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-none"
-          />
-        </div>
 
-        {/* Divider */}
-        <div className="w-px bg-border hidden md:block" />
-        <div className="h-px bg-border md:hidden" />
-
-        {/* Live preview — right */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="px-3 py-1.5 border-b border-border bg-muted/20 flex items-center gap-1.5">
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Preview</span>
-            <span className="text-[10px] text-muted-foreground/60 ml-auto">ao vivo · clique em [[links]] para navegar</span>
-          </div>
-          <div className="flex-1 min-h-[420px] max-h-[620px] overflow-y-auto p-4 text-sm leading-relaxed">
-            {content ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-                {preprocessWikiLinks(content)}
-              </ReactMarkdown>
-            ) : (
-              <p className="text-muted-foreground/30 italic text-sm mt-8 text-center">
-                Preview ao vivo…
-              </p>
-            )}
-          </div>
+          {content ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              {preprocessWikiLinks(content)}
+            </ReactMarkdown>
+          ) : (
+            <p className="text-muted-foreground/30 italic text-sm">
+              Click to start writing…
+            </p>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Tags */}
       <div className="flex flex-col gap-2">
@@ -426,7 +431,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
               <button
                 onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
                 className="hover:text-destructive transition-colors"
-                aria-label={`Remover ${tag}`}
+                aria-label={`Remove ${tag}`}
               >
                 <X className="size-2.5" />
               </button>
@@ -438,12 +443,12 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={handleTagKeyDown}
             onBlur={() => { if (tagInput) addTag(tagInput); }}
-            placeholder={note.tags.length === 0 ? "Adicionar tag…" : ""}
+            placeholder={note.tags.length === 0 ? "Add tag…" : ""}
             className="border-none bg-transparent shadow-none h-6 px-0 text-[11px] min-w-24 flex-1 focus-visible:ring-0"
           />
         </div>
         <p className="text-[10px] text-muted-foreground">
-          Enter ou vírgula para adicionar · Backspace para remover.
+          Press Enter or comma to add · Backspace to remove.
         </p>
       </div>
     </div>
@@ -456,7 +461,7 @@ export function NoteEditorSkeleton() {
   return (
     <div className="flex flex-col gap-5">
       <Skeleton className="h-9 w-3/4 rounded-lg" />
-      <Skeleton className="h-[420px] w-full rounded-xl" />
+      <Skeleton className="h-[480px] w-full rounded-xl" />
       <Skeleton className="h-9 w-full rounded-lg" />
     </div>
   );

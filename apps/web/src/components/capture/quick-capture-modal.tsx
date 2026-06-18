@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Zap } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@my-better-t-app/ui/components/button";
 import {
   Dialog,
@@ -26,31 +28,31 @@ type ParaCategory = "project" | "area" | "resource" | "archive" | "";
 
 const TYPE_TEMPLATES: Record<NoteType, string> = {
   fleeting: "",
-  literature: "## Resumo\n\n\n## Citação relevante\n\n\n## Minha visão\n\n",
-  permanent: "## Ideia principal\n\n\n## Evidência / Raciocínio\n\n\n## Conexões\n\n",
+  literature: "## Summary\n\n\n## Key Quote\n\n\n## My Take\n\n",
+  permanent: "## Main Idea\n\n\n## Evidence / Reasoning\n\n\n## Connections\n\n",
 };
 
 const TYPE_TITLE_PLACEHOLDER: Record<NoteType, string> = {
-  fleeting: "O que está na sua cabeça?",
-  literature: "Título do livro, artigo, podcast...",
-  permanent: "Qual é a ideia central? (seja específico)",
+  fleeting: "What's on your mind?",
+  literature: "Book, article, or podcast title…",
+  permanent: "What's the central idea? (be specific)",
 };
 
 const PARA_CONFIG: Record<string, { type: NoteType; content: string; titlePlaceholder: string }> = {
   project: {
     type: "permanent",
-    content: "## Objetivo\n\n\n## Por que isso importa\n\n\n## Próximos passos\n- [ ] \n\n## Referências\n\n",
-    titlePlaceholder: "Nome do projeto",
+    content: "## Goal\n\n\n## Why It Matters\n\n\n## Next Steps\n- [ ] \n\n## References\n\n",
+    titlePlaceholder: "Project name",
   },
   area: {
     type: "permanent",
-    content: "## Descrição\n\n\n## Padrões e responsabilidades\n\n\n## Referências\n\n",
-    titlePlaceholder: "Nome da área (ex: Saúde, Finanças, Trabalho)",
+    content: "## Description\n\n\n## Standards & Responsibilities\n\n\n## References\n\n",
+    titlePlaceholder: "Area name (e.g. Health, Finance, Work)",
   },
   resource: {
     type: "literature",
-    content: "## Sobre o recurso\n\n\n## Pontos principais\n\n\n## Aplicação prática\n\n",
-    titlePlaceholder: "Nome do recurso ou tópico",
+    content: "## About\n\n\n## Key Points\n\n\n## Practical Application\n\n",
+    titlePlaceholder: "Resource or topic name",
   },
 };
 
@@ -60,6 +62,24 @@ const ALL_TEMPLATES = new Set(
     ...Object.values(PARA_CONFIG).map((c) => c.content),
   ].filter(Boolean),
 );
+
+// ─── Simplified markdown components for the modal ─────────────────────────────
+
+const mdComponents: Parameters<typeof ReactMarkdown>[0]["components"] = {
+  h1: ({ children }) => <h1 className="text-sm font-bold mb-1 text-foreground">{children}</h1>,
+  h2: ({ children }) => <h2 className="text-xs font-semibold mb-1 mt-2 text-foreground">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-xs font-semibold mb-0.5 mt-1.5 text-foreground">{children}</h3>,
+  p: ({ children }) => <p className="mb-1.5 text-foreground/80 leading-snug">{children}</p>,
+  ul: ({ children }) => <ul className="list-disc list-inside mb-1.5 text-foreground/80">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal list-inside mb-1.5 text-foreground/80">{children}</ol>,
+  li: ({ children }) => <li className="text-foreground/80">{children}</li>,
+  strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+  code: ({ children }) => <code className="bg-muted px-1 rounded text-[10px] font-mono">{children}</code>,
+  blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/40 pl-2 italic text-muted-foreground">{children}</blockquote>,
+  hr: () => <hr className="border-border my-2" />,
+  input: ({ type, checked }) =>
+    type === "checkbox" ? <input type="checkbox" checked={checked} readOnly className="mr-1 accent-primary" /> : null,
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -109,7 +129,6 @@ export function QuickCaptureModal() {
   async function handleSave() {
     if (!title.trim() || loading) return;
     try {
-      // Permanent notes and PARA-categorized notes skip inbox — they're already processed
       const status = type === "permanent" || !!para ? "active" : undefined;
       await create({
         title,
@@ -120,19 +139,19 @@ export function QuickCaptureModal() {
         tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
         para: para || undefined,
       });
-      toast.success("Nota salva!");
+      toast.success("Note saved!");
       setOpen(false);
       reset();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao salvar nota");
+      toast.error(e instanceof Error ? e.message : "Error saving note");
     }
   }
 
   const paraConfig = para && para in PARA_CONFIG ? PARA_CONFIG[para] : null;
   const titlePlaceholder = paraConfig?.titlePlaceholder ?? TYPE_TITLE_PLACEHOLDER[type];
   const modalTitle = paraConfig
-    ? { project: "Novo projeto", area: "Nova área", resource: "Novo recurso" }[para as string] ?? "Captura rápida"
-    : "Captura rápida";
+    ? ({ project: "New Project", area: "New Area", resource: "New Resource" }[para as string] ?? "Quick Capture")
+    : "Quick Capture";
 
   return (
     <>
@@ -143,12 +162,10 @@ export function QuickCaptureModal() {
         onClick={() => setOpen(true)}
       >
         <Zap className="size-3.5" />
-        Captura rápida
+        Quick Capture
       </Button>
 
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}
-        // biome-ignore lint/a11y/useKeyWithClickEvents: handled via onKeyDown in content
-      >
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
         <DialogContent
           className="sm:max-w-lg"
           showCloseButton
@@ -161,12 +178,13 @@ export function QuickCaptureModal() {
           </DialogHeader>
 
           <div className="grid gap-4">
+            {/* Title */}
             <div className="grid gap-1.5">
               <Label htmlFor="note-title">
-                {para === "project" ? "Nome do projeto *" :
-                 para === "area" ? "Nome da área *" :
-                 para === "resource" ? "Nome do recurso *" :
-                 "Ideia central (uma frase) *"}
+                {para === "project" ? "Project name *" :
+                 para === "area" ? "Area name *" :
+                 para === "resource" ? "Resource name *" :
+                 "Main idea (one sentence) *"}
               </Label>
               <Input
                 id="note-title"
@@ -177,22 +195,32 @@ export function QuickCaptureModal() {
               />
             </div>
 
+            {/* Content + live preview */}
             <div className="grid gap-1.5">
               <Label htmlFor="note-content">
-                {para ? "Detalhes" : "Detalhes (opcional)"}
+                {para ? "Details" : "Details (optional)"}
               </Label>
               <Textarea
                 id="note-content"
-                placeholder={para ? "" : "Expanda o pensamento..."}
+                placeholder={para ? "" : "Expand the thought…"}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 className="min-h-32 resize-none font-mono text-xs"
               />
+              {/* Live markdown preview */}
+              {content.trim() && (
+                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 max-h-32 overflow-y-auto text-xs leading-relaxed">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+                    {content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
 
+            {/* Type + Source/PARA */}
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label>Tipo</Label>
+                <Label>Type</Label>
                 <NativeSelect
                   value={type}
                   onChange={(e) => handleTypeChange(e.target.value as NoteType)}
@@ -205,63 +233,65 @@ export function QuickCaptureModal() {
 
               {type === "literature" ? (
                 <div className="grid gap-1.5">
-                  <Label>Fonte</Label>
+                  <Label>Source</Label>
                   <NativeSelect
                     value={sourceType}
                     onChange={(e) => setSourceType(e.target.value as SourceType)}
                   >
-                    <NativeSelectOption value="article">Artigo</NativeSelectOption>
-                    <NativeSelectOption value="book">Livro</NativeSelectOption>
+                    <NativeSelectOption value="article">Article</NativeSelectOption>
+                    <NativeSelectOption value="book">Book</NativeSelectOption>
                     <NativeSelectOption value="podcast">Podcast</NativeSelectOption>
-                    <NativeSelectOption value="other">Outro</NativeSelectOption>
+                    <NativeSelectOption value="other">Other</NativeSelectOption>
                   </NativeSelect>
                 </div>
               ) : (
                 <div className="grid gap-1.5">
-                  <Label>Categoria (PARA)</Label>
+                  <Label>PARA Category</Label>
                   <NativeSelect
                     value={para}
                     onChange={(e) => setPara(e.target.value as ParaCategory)}
                   >
-                    <NativeSelectOption value="">Nenhuma</NativeSelectOption>
-                    <NativeSelectOption value="project">Projeto</NativeSelectOption>
-                    <NativeSelectOption value="area">Área</NativeSelectOption>
-                    <NativeSelectOption value="resource">Recurso</NativeSelectOption>
+                    <NativeSelectOption value="">None</NativeSelectOption>
+                    <NativeSelectOption value="project">Project</NativeSelectOption>
+                    <NativeSelectOption value="area">Area</NativeSelectOption>
+                    <NativeSelectOption value="resource">Resource</NativeSelectOption>
                     <NativeSelectOption value="archive">Archive</NativeSelectOption>
                   </NativeSelect>
                 </div>
               )}
             </div>
 
+            {/* Tags */}
             <div className="grid gap-1.5">
-              <Label htmlFor="note-tags">Tags (separadas por vírgula)</Label>
+              <Label htmlFor="note-tags">Tags (comma-separated)</Label>
               <Input
                 id="note-tags"
-                placeholder="pkm, zettelkasten, produtividade"
+                placeholder="pkm, zettelkasten, productivity"
                 value={tags}
                 onChange={(e) => setTags(e.target.value)}
               />
             </div>
 
+            {/* Type hint */}
             <p className="text-[10px] text-muted-foreground">
               {type === "fleeting" && (
-                <>Será salva como <span className="text-note-fleeting font-medium">Fleeting Note</span> — processe em até 48h.</>
+                <>Saved as <span className="text-note-fleeting font-medium">Fleeting Note</span> — process within 48h.</>
               )}
               {type === "literature" && (
-                <>Será salva como <span className="text-note-literature font-medium">Literature Note</span> — registre a fonte acima.</>
+                <>Saved as <span className="text-note-literature font-medium">Literature Note</span> — add source info above.</>
               )}
               {type === "permanent" && (
-                <>Será salva como <span className="font-medium">Permanent Note</span> — definitiva e processada.</>
+                <>Saved as <span className="font-medium">Permanent Note</span> — final and processed.</>
               )}
             </p>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
-              Cancelar
+              Cancel
             </Button>
             <Button onClick={handleSave} disabled={!title.trim() || loading}>
-              {loading ? "Salvando…" : "Salvar nota"}
+              {loading ? "Saving…" : "Save note"}
             </Button>
           </DialogFooter>
         </DialogContent>

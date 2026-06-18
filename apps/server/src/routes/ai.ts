@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, convertToModelMessages, type UIMessage } from "ai";
+import { streamText, generateText, convertToModelMessages, type UIMessage } from "ai";
 
 export const aiRouter = Router();
 
@@ -29,6 +29,49 @@ Ao sugerir uma nota permanente, use este formato:
 ---
 
 Responda sempre em português do Brasil, de forma direta e útil.`;
+
+// ─── POST /ai/suggest-areas ────────────────────────────────────────────────────
+
+aiRouter.post("/suggest-areas", async (req, res) => {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: "ANTHROPIC_API_KEY not configured." });
+  }
+
+  const notes = (req.body.notes ?? []) as Array<{ title: string; type: string; tags: string[] }>;
+  if (notes.length === 0) {
+    return res.json({ suggestions: "No notes found yet. Create some notes first, then I can suggest areas for you!" });
+  }
+
+  const noteList = notes
+    .map((n) => `- "${n.title}" [${n.type}]${n.tags.length ? ` #${n.tags.join(" #")}` : ""}`)
+    .join("\n");
+
+  try {
+    const { text } = await generateText({
+      model: anthropic("claude-haiku-4-5-20251001"),
+      prompt: `You are a PKM assistant helping organize a Second Brain using the PARA method.
+
+Here are the user's notes:
+${noteList}
+
+Suggest 3-6 PARA **Areas** that would meaningfully group this knowledge. An Area is an ongoing sphere of activity with a standard you want to maintain (e.g., "Artificial Intelligence", "Personal Finance", "Health & Fitness").
+
+For each area:
+1. Give a concise name (2-4 words, title case)
+2. List which notes from above fit in it (use exact titles)
+3. One sentence explaining why these notes belong together
+
+Format as markdown with ## headers for each area. Focus on themes that genuinely emerge from the notes — don't force groupings. If notes don't cluster naturally, say so.`,
+      maxTokens: 1500,
+    });
+    return res.json({ suggestions: text });
+  } catch (err) {
+    console.error("[AI] suggest-areas error:", err);
+    return res.status(500).json({ error: "Error generating area suggestions." });
+  }
+});
+
+// ─── POST /ai/chat ────────────────────────────────────────────────────────────
 
 aiRouter.post("/chat", async (req, res) => {
   const { messages, vaultContext } = req.body as {

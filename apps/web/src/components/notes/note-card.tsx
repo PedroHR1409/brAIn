@@ -72,8 +72,8 @@ function formatTimeAgo(dateStr: string): string {
   const hours = Math.floor(diff / 1000 / 60 / 60);
   const days = Math.floor(hours / 24);
 
-  if (hours < 1) return "agora";
+  if (hours < 1) return "now";
   if (hours < 24) return `${hours}h`;
   if (days < 7) return `${days}d`;
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return date.toLocaleDateString("en-US", { day: "2-digit", month: "2-digit" });
 }

@@ -103,7 +103,7 @@ export function KnowledgeGraph() {
       <div className="absolute top-3 left-4 z-10">
         <h2 className="text-sm font-semibold text-card-foreground">Knowledge Graph</h2>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          {nodes.length} notas · {edges.length} conexões
+          {nodes.length} notes · {edges.length} connections
         </p>
       </div>
 
@@ -124,12 +124,12 @@ export function KnowledgeGraph() {
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="flex flex-col items-center gap-2">
             <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            <p className="text-xs text-muted-foreground">Calculando grafo…</p>
+            <p className="text-xs text-muted-foreground">Computing graph…</p>
           </div>
         </div>
       ) : nodes.length === 0 ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Crie notas e conecte-as para ver o grafo.</p>
+          <p className="text-sm text-muted-foreground">Create notes and link them with [[wikilinks]] to see the graph.</p>
         </div>
       ) : (
         <svg
@@ -214,7 +214,7 @@ export function KnowledgeGraph() {
       {/* Tooltip hint */}
       {hovered && (
         <div className="absolute bottom-3 right-4 text-[10px] text-muted-foreground">
-          Clique para abrir a nota
+          Click to open note
         </div>
       )}
     </div>

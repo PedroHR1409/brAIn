@@ -68,7 +68,7 @@ export function ConnectionsPanel({
       <div className="flex items-center gap-2">
         <Link2 className="size-3.5 text-muted-foreground" />
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Conexões
+          Connections
         </h3>
         {!loading && (
           <span className="ml-auto text-[10px] text-muted-foreground">
@@ -86,7 +86,7 @@ export function ConnectionsPanel({
         </div>
       ) : connections.length === 0 ? (
         <p className="text-[11px] text-muted-foreground py-1 text-center">
-          Nenhuma conexão ainda.
+          No connections yet.
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -108,7 +108,7 @@ export function ConnectionsPanel({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Conectar nota…"
+            placeholder="Connect note…"
             className="h-5 border-none bg-transparent shadow-none p-0 text-[11px] focus-visible:ring-0 placeholder:text-muted-foreground/60"
             disabled={adding}
           />

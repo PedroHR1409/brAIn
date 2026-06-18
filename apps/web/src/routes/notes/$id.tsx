@@ -24,23 +24,23 @@ function NoteDetailPage() {
   const { remove: deleteNote } = useDeleteNote();
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir esta nota? Esta ação não pode ser desfeita.")) return;
+    if (!confirm("Delete this note? This action cannot be undone.")) return;
     try {
       await deleteNote(id);
-      toast.success("Nota excluída.");
+      toast.success("Note deleted.");
       navigate({ to: "/" });
     } catch {
-      toast.error("Erro ao excluir nota.");
+      toast.error("Error deleting note.");
     }
   }
 
   async function handleArchive() {
     try {
       await api.notes.update(id, { status: "archived", para: "archive" });
-      toast.success("Nota arquivada.");
+      toast.success("Note archived.");
       navigate({ to: "/inbox", search: { para: "archive" } });
     } catch {
-      toast.error("Erro ao arquivar nota.");
+      toast.error("Error archiving note.");
     }
   }
 
@@ -49,7 +49,7 @@ function NoteDetailPage() {
       <div className="mx-auto max-w-3xl px-6 py-16 text-center space-y-4">
         <p className="text-sm text-destructive">{error}</p>
         <Button variant="outline" onClick={() => navigate({ to: "/" })}>
-          Voltar ao início
+          Back to home
         </Button>
       </div>
     );
@@ -66,18 +66,18 @@ function NoteDetailPage() {
           onClick={() => router.history.back()}
         >
           <ArrowLeft className="size-3.5" />
-          Voltar
+          Back
         </Button>
 
         <div className="flex items-center gap-2 ml-auto text-[11px] text-muted-foreground">
           {saving && (
             <>
               <Loader2 className="size-3 animate-spin" />
-              Salvando…
+              Saving…
             </>
           )}
           {!saving && !loading && (
-            <span className="text-note-permanent">Salvo</span>
+            <span className="text-note-permanent">Saved</span>
           )}
         </div>
       </div>

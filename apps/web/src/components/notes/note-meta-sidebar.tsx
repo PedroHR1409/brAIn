@@ -39,19 +39,19 @@ interface NoteMetaSidebarProps {
 }
 
 const statusLabel: Record<string, { icon: React.ReactNode; label: string }> = {
-  inbox: { icon: <Inbox className="size-3" />, label: "Inbox" },
-  active: { icon: <CheckCircle className="size-3" />, label: "Ativa" },
-  on_hold: { icon: <Pause className="size-3" />, label: "Em espera" },
-  done: { icon: <CheckCircle className="size-3" />, label: "Concluída" },
-  archived: { icon: <Archive className="size-3" />, label: "Arquivada" },
+  inbox:    { icon: <Inbox className="size-3" />,        label: "Inbox" },
+  active:   { icon: <CheckCircle className="size-3" />,  label: "Active" },
+  on_hold:  { icon: <Pause className="size-3" />,        label: "On Hold" },
+  done:     { icon: <CheckCircle className="size-3" />,  label: "Done" },
+  archived: { icon: <Archive className="size-3" />,      label: "Archived" },
 };
 
 const PARA_OPTIONS = [
-  { value: "", label: "Nenhuma" },
-  { value: "project", label: "Projeto", icon: Briefcase },
-  { value: "area", label: "Área", icon: Globe },
-  { value: "resource", label: "Recurso", icon: BookOpen },
-  { value: "archive", label: "Archive", icon: Archive },
+  { value: "",         label: "None" },
+  { value: "project",  label: "Project",  icon: Briefcase },
+  { value: "area",     label: "Area",     icon: Globe },
+  { value: "resource", label: "Resource", icon: BookOpen },
+  { value: "archive",  label: "Archive",  icon: Archive },
 ] as const;
 
 export function NoteMetaSidebar({
@@ -74,12 +74,12 @@ export function NoteMetaSidebar({
       await onProcess(type);
       toast.success(
         type === "permanent"
-          ? "Promovida para Permanent Note! Encontre em Zettelkasten → Notas Permanentes."
-          : "Promovida para Literature Note! Encontre em Zettelkasten → Literature Notes.",
+          ? "Promoted to Permanent Note! Find it in Zettelkasten → Permanent Notes."
+          : "Promoted to Literature Note! Find it in Zettelkasten → Literature Notes.",
         { duration: 5000 },
       );
     } catch {
-      toast.error("Erro ao processar nota.");
+      toast.error("Error processing note.");
     }
   }
 
@@ -100,7 +100,7 @@ export function NoteMetaSidebar({
 
       {/* PARA category */}
       <div className="flex flex-col gap-1.5">
-        <p className="text-[11px] text-muted-foreground font-medium">Categoria PARA</p>
+        <p className="text-[11px] text-muted-foreground font-medium">PARA Category</p>
         <NativeSelect
           value={note.para ?? ""}
           onChange={(e) => onUpdate({ para: e.target.value || undefined })}
@@ -120,7 +120,7 @@ export function NoteMetaSidebar({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <BarChart2 className="size-3" />
-          Força da nota
+          Note Strength
         </div>
         <div className="flex items-center gap-2">
           <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
@@ -139,20 +139,20 @@ export function NoteMetaSidebar({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Calendar className="size-3" />
-          Datas
+          Dates
         </div>
         <div className="space-y-1 text-[10px] text-muted-foreground">
           <div className="flex justify-between">
-            <span>Criada</span>
+            <span>Created</span>
             <span className="font-mono">{formatDate(note.createdAt)}</span>
           </div>
           <div className="flex justify-between">
-            <span>Atualizada</span>
+            <span>Updated</span>
             <span className="font-mono">{formatDate(note.updatedAt)}</span>
           </div>
           {note.processedAt && (
             <div className="flex justify-between">
-              <span>Processada</span>
+              <span>Processed</span>
               <span className="font-mono">{formatDate(note.processedAt)}</span>
             </div>
           )}
@@ -183,7 +183,7 @@ export function NoteMetaSidebar({
               disabled={processing}
             >
               <ArrowUpCircle className="size-3.5" />
-              Promover para Literature
+              Promote to Literature
             </Button>
             <Button
               size="sm"
@@ -193,7 +193,7 @@ export function NoteMetaSidebar({
               disabled={processing}
             >
               <Zap className="size-3.5" />
-              Promover para Permanent
+              Promote to Permanent
             </Button>
           </>
         )}
@@ -207,7 +207,7 @@ export function NoteMetaSidebar({
             disabled={processing}
           >
             <Zap className="size-3.5" />
-            Promover para Permanent
+            Promote to Permanent
           </Button>
         )}
 
@@ -219,7 +219,7 @@ export function NoteMetaSidebar({
           disabled={processing}
         >
           <Archive className="size-3.5" />
-          Arquivar
+          Archive
         </Button>
 
         <Button
@@ -230,13 +230,13 @@ export function NoteMetaSidebar({
           disabled={processing}
         >
           <Trash2 className="size-3.5" />
-          Excluir nota
+          Delete note
         </Button>
       </div>
 
       {saving && (
         <p className="text-[10px] text-muted-foreground text-center animate-pulse">
-          Salvando…
+          Saving…
         </p>
       )}
     </aside>
@@ -244,7 +244,7 @@ export function NoteMetaSidebar({
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", {
+  return new Date(iso).toLocaleDateString("en-US", {
     day: "2-digit",
     month: "2-digit",
     year: "2-digit",

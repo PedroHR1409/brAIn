@@ -40,7 +40,7 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.47 0.27 270);
   /* Note type tokens */
-  --note-fleeting: oklch(0.73 0.18 80);
+  --note-fleeting: oklch(0.68 0.22 310);
   --note-literature: oklch(0.60 0.19 250);
   --note-permanent: oklch(0.71 0.16 162);
   --note-ai: oklch(0.47 0.27 270);
@@ -80,7 +80,7 @@
   --sidebar-border: oklch(0.135 0.014 277);
   --sidebar-ring: oklch(0.47 0.27 270);
   /* Note type tokens */
-  --note-fleeting: oklch(0.73 0.18 80);
+  --note-fleeting: oklch(0.74 0.22 310);
   --note-literature: oklch(0.60 0.19 250);
   --note-permanent: oklch(0.71 0.16 162);
   --note-ai: oklch(0.47 0.27 270);

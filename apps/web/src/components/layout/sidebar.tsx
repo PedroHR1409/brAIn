@@ -45,9 +45,9 @@ const MAIN_NAV: NavItem[] = [
 ];
 
 const PARA_NAV: ParaItem[] = [
-  { category: "project", label: "Projetos", icon: Briefcase },
-  { category: "area", label: "Áreas", icon: Globe },
-  { category: "resource", label: "Recursos", icon: BookOpen },
+  { category: "project", label: "Projects", icon: Briefcase },
+  { category: "area", label: "Areas", icon: Globe },
+  { category: "resource", label: "Resources", icon: BookOpen },
   { category: "archive", label: "Archive", icon: Archive },
 ];
 
@@ -57,7 +57,7 @@ const ZETTELKASTEN_NAV = [
 ];
 
 const VAULT_NAV: NavItem[] = [
-  { to: "/", label: "Saúde da Vault", icon: Activity, exact: true },
+  { to: "/", label: "Vault Health", icon: Activity, exact: true },
   { to: "/ai", label: "AI Studio", icon: Sparkles, exact: true },
 ];
 
@@ -137,7 +137,7 @@ export function Sidebar() {
           className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
         >
           <Search className="size-3.5 shrink-0" />
-          <span className="flex-1 text-left">Buscar…</span>
+          <span className="flex-1 text-left">Search…</span>
           <kbd className="hidden sm:inline-flex items-center rounded bg-background/60 px-1 py-0.5 font-mono text-[10px] text-muted-foreground border border-border">
             ⌃K
           </kbd>
