@@ -127,6 +127,20 @@ export interface ApiTodo {
   lineIndex: number;
 }
 
+export interface ApiTask {
+  id: string;
+  title: string;
+  description: string;
+  parentId: string | null;
+  completed: boolean;
+  completedAt: string | null;
+  dueDate: string | null;
+  priority: number;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const api = {
@@ -191,6 +205,15 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ lineIndex, checked }),
       }),
+  },
+  tasks: {
+    list: (params?: { parentId?: string; completed?: boolean }) =>
+      request<{ tasks: ApiTask[] }>(`/tasks${toQuery(params as Record<string, unknown>)}`),
+    create: (body: { title: string; description?: string; parentId?: string; dueDate?: string; priority?: number }) =>
+      request<ApiTask>("/tasks", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: Partial<{ title: string; description: string; completed: boolean; dueDate: string | null; priority: number; parentId: string | null }>) =>
+      request<ApiTask>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    delete: (id: string) => request<void>(`/tasks/${id}`, { method: "DELETE" }),
   },
   ai: {
     suggestAreas: (notes: Array<{ title: string; type: string; tags: string[] }>) =>

@@ -12,7 +12,6 @@ import {
   getTableColumns,
   ilike,
   inArray,
-  not,
   or,
   sql,
   type SQL,
@@ -296,7 +295,7 @@ notesRouter.get("/todos", async (_req, res) => {
     const lines = note.content.split("\n");
     lines.forEach((line, lineIndex) => {
       const m = line.match(/^- \[ \] (.+)/);
-      if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1].trim(), lineIndex });
+      if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1]!.trim(), lineIndex });
     });
   }
 
@@ -318,7 +317,7 @@ notesRouter.patch("/:id/todos", async (req, res) => {
   const { lineIndex, checked } = parsed.data;
   if (lineIndex >= lines.length) return res.status(400).json({ error: "Invalid line" });
 
-  lines[lineIndex] = lines[lineIndex]
+  lines[lineIndex] = (lines[lineIndex] ?? "")
     .replace(/^- \[ \] /, checked ? "- [x] " : "- [ ] ")
     .replace(/^- \[x\] /, checked ? "- [x] " : "- [ ] ");
 

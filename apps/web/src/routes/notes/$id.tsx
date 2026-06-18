@@ -38,7 +38,7 @@ function NoteDetailPage() {
     try {
       await api.notes.update(id, { status: "archived", para: "archive" });
       toast.success("Note archived.");
-      navigate({ to: "/inbox", search: { para: "archive" } });
+      navigate({ to: "/inbox", search: { para: "archive", type: undefined } });
     } catch {
       toast.error("Error archiving note.");
     }

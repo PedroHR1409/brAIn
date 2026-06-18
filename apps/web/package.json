@@ -18,6 +18,11 @@
     "@my-better-t-app/ui": "*",
     "@tailwindcss/vite": "^4.2.2",
     "@tanstack/react-router": "^1.168.22",
+    "@tiptap/extension-placeholder": "^3.27.0",
+    "@tiptap/extension-task-item": "^3.27.0",
+    "@tiptap/extension-task-list": "^3.27.0",
+    "@tiptap/react": "^3.27.0",
+    "@tiptap/starter-kit": "^3.27.0",
     "ai": "^6.0.206",
     "dotenv": "^17.2.2",
     "lucide-react": "^1.8.0",
@@ -28,6 +33,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.7",
+    "tiptap-markdown": "^0.9.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {

@@ -48,7 +48,7 @@ function DashboardPage() {
               <h2 className="text-sm font-semibold text-foreground">Recent notes</h2>
               <button
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => navigate({ to: "/inbox" })}
+                onClick={() => navigate({ to: "/inbox", search: { para: undefined, type: undefined } })}
               >
                 View all →
               </button>

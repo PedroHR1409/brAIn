@@ -59,7 +59,7 @@ function DailyPage() {
       });
 
       toast.success("Daily note archived! Find it in Archive → Daily Notes.");
-      navigate({ to: "/inbox", search: { para: "archive" } });
+      navigate({ to: "/inbox", search: { para: "archive", type: undefined } });
     } catch {
       toast.error("Failed to archive daily note.");
     }

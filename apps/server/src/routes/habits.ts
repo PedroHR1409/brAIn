@@ -1,5 +1,5 @@
 import { db, habits, habitLogs, notes } from "@my-better-t-app/db";
-import { and, desc, eq, gte, or, ilike } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -92,7 +92,7 @@ habitsRouter.post("/:id/log", async (req, res) => {
 
   if (existing.length > 0) {
     if (toggle) {
-      await db.delete(habitLogs).where(eq(habitLogs.id, existing[0].id));
+      await db.delete(habitLogs).where(eq(habitLogs.id, existing[0]!.id));
       return res.json({ completed: false });
     }
     return res.json({ completed: true });
@@ -108,7 +108,6 @@ habitsRouter.post("/:id/log", async (req, res) => {
 habitsRouter.post("/ai-detect", async (req, res) => {
   const date = (req.body?.date as string) || todayISO();
   const dayStart = new Date(date + "T00:00:00.000Z");
-  const dayEnd   = new Date(date + "T23:59:59.999Z");
 
   const [allHabits, todayNotes, existingLogs] = await Promise.all([
     db.select().from(habits).where(eq(habits.isActive, true)),

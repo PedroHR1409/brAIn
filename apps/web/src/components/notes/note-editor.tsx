@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Tag, X, LayoutTemplate, ChevronDown, Download } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Tag, X, LayoutTemplate, ChevronDown, Download, CheckSquare } from "lucide-react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
+import Placeholder from "@tiptap/extension-placeholder";
+import { Markdown } from "tiptap-markdown";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { Input } from "@my-better-t-app/ui/components/input";
 import { Button } from "@my-better-t-app/ui/components/button";
@@ -29,104 +33,11 @@ const TEMPLATES = [
   { id: "resource",   label: "Resource",        content: "## About\n\n\n## Key Points\n\n\n## Practical Application\n\n" },
 ] as const;
 
-// ─── Wiki-link preprocessing ──────────────────────────────────────────────────
-
-// Supports [[Target]] and [[Target|Display text]] (Obsidian alias syntax)
-function preprocessWikiLinks(text: string): string {
-  return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g, (_, target, display) => {
-    const label = (display ?? target).trim() || target.trim();
-    return `[${label}](wikilink:${encodeURIComponent(target.trim())})`;
-  });
-}
-
-// ─── Markdown components ──────────────────────────────────────────────────────
-
-function makeMarkdownComponents(
-  onWikiClick: (title: string) => void,
-  onToggleTodo: (checkboxIndex: number, currentChecked: boolean) => void,
-) {
-  let checkboxCount = 0;
-
-  return {
-    h1: ({ children }: { children: React.ReactNode }) => (
-      <h1 className="text-xl font-bold mb-3 mt-0 text-foreground">{children}</h1>
-    ),
-    h2: ({ children }: { children: React.ReactNode }) => (
-      <h2 className="text-base font-semibold mb-2 mt-5 text-foreground">{children}</h2>
-    ),
-    h3: ({ children }: { children: React.ReactNode }) => (
-      <h3 className="text-sm font-semibold mb-1.5 mt-3 text-foreground">{children}</h3>
-    ),
-    p: ({ children }: { children: React.ReactNode }) => (
-      <p className="mb-3 text-foreground/90 leading-relaxed">{children}</p>
-    ),
-    ul: ({ children }: { children: React.ReactNode }) => (
-      <ul className="list-disc list-inside mb-3 space-y-1 text-foreground/90">{children}</ul>
-    ),
-    ol: ({ children }: { children: React.ReactNode }) => (
-      <ol className="list-decimal list-inside mb-3 space-y-1 text-foreground/90">{children}</ol>
-    ),
-    li: ({ children }: { children: React.ReactNode }) => (
-      <li className="text-foreground/90">{children}</li>
-    ),
-    blockquote: ({ children }: { children: React.ReactNode }) => (
-      <blockquote className="border-l-2 border-primary/50 pl-4 italic text-muted-foreground mb-3">
-        {children}
-      </blockquote>
-    ),
-    code: ({ children, className }: { children: React.ReactNode; className?: string }) =>
-      className ? (
-        <code className="block bg-muted rounded-lg p-3 text-xs font-mono overflow-auto mb-3 whitespace-pre">
-          {children}
-        </code>
-      ) : (
-        <code className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground">
-          {children}
-        </code>
-      ),
-    strong: ({ children }: { children: React.ReactNode }) => (
-      <strong className="font-semibold text-foreground">{children}</strong>
-    ),
-    a: ({ children, href }: { children: React.ReactNode; href?: string }) => {
-      if (href?.startsWith("wikilink:")) {
-        const target = decodeURIComponent(href.slice(9));
-        return (
-          <span
-            className="text-primary border-b border-primary/40 cursor-pointer hover:text-primary/70 transition-colors font-medium"
-            onClick={(e) => { e.stopPropagation(); onWikiClick(target); }}
-          >
-            {children}
-          </span>
-        );
-      }
-      return (
-        <a href={href} className="text-primary underline underline-offset-2 hover:text-primary/80" target="_blank" rel="noopener noreferrer">
-          {children}
-        </a>
-      );
-    },
-    hr: () => <hr className="border-border my-4" />,
-    input: ({ type, checked }: { type?: string; checked?: boolean }) => {
-      if (type !== "checkbox") return null;
-      const idx = checkboxCount++;
-      return (
-        <input
-          type="checkbox"
-          checked={checked ?? false}
-          onChange={() => onToggleTodo(idx, checked ?? false)}
-          className="mr-1.5 accent-primary cursor-pointer"
-        />
-      );
-    },
-  } as Parameters<typeof ReactMarkdown>[0]["components"];
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps) {
   const navigate = useNavigate();
   const [title, setTitle] = useState(note.title);
-  const [content, setContent] = useState(note.content ?? "");
   const [tagInput, setTagInput] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
 
@@ -134,14 +45,67 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
   const [wikiQuery, setWikiQuery] = useState<string | null>(null);
   const [wikiResults, setWikiResults] = useState<ApiNote[]>([]);
   const [wikiSearching, setWikiSearching] = useState(false);
-  const wikiCursorRef = useRef<number>(0);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef(note.content ?? "");
 
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  // ─── TipTap editor setup ─────────────────────────────────────────────────────
 
-  // Wiki-link search
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // Disable history shortcut conflicts — handled by StarterKit defaults
+      }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Placeholder.configure({
+        placeholder: "Write here…\n\nUse **bold**, *italic*, ## heading, - list, - [ ] todo\nType [[ to link notes.",
+        emptyEditorClass: "is-editor-empty",
+      }),
+      Markdown.configure({
+        html: false,
+        transformPastedText: true,
+        transformCopiedText: false,
+      }),
+    ],
+    content: note.content ?? "",
+    onUpdate: ({ editor }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const markdown = (editor.storage as any).markdown.getMarkdown() as string;
+      contentRef.current = markdown;
+      onUpdate({ content: markdown });
+
+      // Wiki-link detection
+      const { from } = editor.state.selection;
+      const textBefore = editor.state.doc.textBetween(
+        Math.max(0, from - 200),
+        from,
+        "\n",
+      );
+      const match = textBefore.match(/\[\[([^\][\n|]*)$/);
+      setWikiQuery(match ? match[1] : null);
+    },
+    editorProps: {
+      attributes: {
+        class: "tiptap-brain-editor",
+      },
+    },
+  });
+
+  // Update editor when note changes (navigating between notes)
+  useEffect(() => {
+    if (!editor) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const markdown = (editor.storage as any).markdown.getMarkdown() as string;
+    if (markdown !== (note.content ?? "")) {
+      editor.commands.setContent(note.content ?? "");
+      contentRef.current = note.content ?? "";
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [note.id]);
+
+  // ─── Wiki-link search ────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (wikiQuery === null) { setWikiResults([]); return; }
     const delay = wikiQuery.length > 0 ? 180 : 0;
@@ -158,84 +122,74 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     return () => clearTimeout(timer);
   }, [wikiQuery, note.id]);
 
+  const selectWikiNote = useCallback((selected: ApiNote) => {
+    if (!editor) return;
+    const { from } = editor.state.selection;
+    const textBefore = editor.state.doc.textBetween(Math.max(0, from - 200), from, "\n");
+    const match = textBefore.match(/\[\[([^\][\n|]*)$/);
+    if (!match) return;
+
+    editor.chain()
+      .focus()
+      .deleteRange({ from: from - match[0].length, to: from })
+      .insertContent(`[[${selected.title}]] `)
+      .run();
+
+    setWikiQuery(null);
+    setWikiResults([]);
+    if (onAddConnection) onAddConnection(selected.id).catch(() => {});
+  }, [editor, onAddConnection]);
+
+  // ─── Keyboard handling in wiki autocomplete ───────────────────────────────────
+
+  useEffect(() => {
+    if (!editor || wikiQuery === null) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setWikiQuery(null); setWikiResults([]); }
+      if (e.key === "Enter" && wikiResults.length > 0) {
+        e.preventDefault();
+        selectWikiNote(wikiResults[0]);
+      }
+    };
+
+    const el = editor.view.dom;
+    el.addEventListener("keydown", handler, { capture: true });
+    return () => el.removeEventListener("keydown", handler, { capture: true });
+  }, [editor, wikiQuery, wikiResults, selectWikiNote]);
+
+  // ─── Toolbar actions ──────────────────────────────────────────────────────────
+
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value);
     onUpdate({ title: e.target.value });
   }
 
-  function handleContentChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value;
-    const cursor = e.target.selectionStart ?? val.length;
-    wikiCursorRef.current = cursor;
-    const before = val.slice(0, cursor);
-    // Stop autocomplete once user types | (they're writing the display alias)
-    const wikiMatch = before.match(/\[\[([^\][\n|]*)$/);
-    setWikiQuery(wikiMatch ? wikiMatch[1] : null);
-    setContent(val);
-    onUpdate({ content: val });
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (wikiQuery !== null) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setWikiQuery(null);
-        return;
-      }
-      if (e.key === "Enter" && wikiResults.length > 0) {
-        e.preventDefault();
-        selectWikiNote(wikiResults[0]);
-        return;
-      }
-    }
-    if (e.key === "Escape") {
-      setWikiQuery(null);
-      setWikiResults([]);
-    }
-  }
-
-  function toggleTodo(checkboxIndex: number, currentChecked: boolean) {
-    let count = 0;
-    const newContent = content.replace(/^(- \[[ x]\] )/gm, (match) => {
-      if (count === checkboxIndex) {
-        count++;
-        return currentChecked ? "- [ ] " : "- [x] ";
-      }
-      count++;
-      return match;
-    });
-    setContent(newContent);
-    onUpdate({ content: newContent });
-  }
-
-  const selectWikiNote = useCallback((selected: ApiNote) => {
-    const cursor = wikiCursorRef.current;
-    const before = content.slice(0, cursor);
-    const after = content.slice(cursor);
-    const wikiStart = before.lastIndexOf("[[");
-    if (wikiStart === -1) return;
-
-    const inserted = `[[${selected.title}]]`;
-    const newContent = `${before.slice(0, wikiStart)}${inserted}${after}`;
-    setContent(newContent);
-    onUpdate({ content: newContent });
-    setWikiQuery(null);
-    setWikiResults([]);
-    if (onAddConnection) onAddConnection(selected.id).catch(() => {});
-
-    const newPos = wikiStart + inserted.length;
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(newPos, newPos);
-    });
-  }, [content, onUpdate, onAddConnection]);
-
   function applyTemplate(templateContent: string) {
-    setContent(templateContent);
+    editor?.commands.setContent(templateContent);
     onUpdate({ content: templateContent });
     setShowTemplates(false);
-    textareaRef.current?.focus();
+    editor?.commands.focus();
   }
+
+  function insertTodo() {
+    if (!editor) return;
+    editor.chain().focus().toggleTaskList().run();
+  }
+
+  function exportMarkdown() {
+    const slug = title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+    const content = contentRef.current;
+    const blob = new Blob([`# ${title}\n\n${content}`], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${slug}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── Tags ────────────────────────────────────────────────────────────────────
 
   function addTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
@@ -257,27 +211,8 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     }
   }
 
-  function exportMarkdown() {
-    const slug = title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-    const blob = new Blob([`# ${title}\n\n${content}`], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${slug}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function navigateToWikiTitle(wikiTitle: string) {
-    try {
-      const { data } = await api.notes.list({ q: wikiTitle, limit: 5 });
-      const match = data.find((n) => n.title.toLowerCase() === wikiTitle.toLowerCase());
-      if (match) navigate({ to: "/notes/$id", params: { id: match.id } });
-    } catch {}
-  }
-
-  // Recreate mdComponents each render so the checkbox counter resets to 0
-  const mdComponents = makeMarkdownComponents(navigateToWikiTitle, toggleTodo);
+  const wordCount = editor?.getText()?.trim().split(/\s+/).filter(Boolean).length ?? 0;
+  const charCount = contentRef.current.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -292,6 +227,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
       {/* Toolbar */}
       <div className="flex items-center justify-between -mb-2">
         <div className="flex items-center gap-1">
+          {/* Templates */}
           <div className="relative">
             <Button
               variant="ghost"
@@ -318,6 +254,19 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             )}
           </div>
 
+          {/* Insert Todo */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            onClick={insertTodo}
+            title="Insert checkbox / task list"
+          >
+            <CheckSquare className="size-3" />
+            Todo
+          </Button>
+
+          {/* Export */}
           <Button
             variant="ghost"
             size="sm"
@@ -332,7 +281,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground select-none">
           <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
           <span className="opacity-40">·</span>
-          <span>{content.length} chars</span>
+          <span>{charCount} chars</span>
         </div>
       </div>
 
@@ -386,41 +335,12 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         </div>
       )}
 
-      {/* Editor — textarea on top (always), live preview below (always) */}
-      <div className="rounded-xl border border-border overflow-hidden focus-within:border-primary/50 transition-colors">
-        {/* Textarea — always editable */}
-        <textarea
-          ref={textareaRef}
-          value={content}
-          onChange={handleContentChange}
-          onKeyDown={handleKeyDown}
-          placeholder={"Write here…\n\nMarkdown: **bold**, *italic*, ## heading, - list, - [ ] todo\n\nUse [[Note Name]] to link notes."}
-          className="min-h-52 w-full resize-none bg-card p-5 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-none border-none"
-          onClick={() => setShowTemplates(false)}
-        />
-
-        {/* Divider */}
-        <div className="flex items-center gap-2 border-t border-border bg-muted/20 px-4 py-1.5">
-          <span className="text-[10px] text-muted-foreground font-medium">Live Preview</span>
-          {content.match(/^- \[[ x]\] /m) && (
-            <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-              checkboxes are interactive
-            </span>
-          )}
-        </div>
-
-        {/* Live preview — always rendered, updates on every keystroke */}
-        <div className="min-h-32 bg-card p-5 text-sm leading-relaxed">
-          {content ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-              {preprocessWikiLinks(content)}
-            </ReactMarkdown>
-          ) : (
-            <p className="text-muted-foreground/30 italic text-sm">
-              Markdown preview will appear here as you type…
-            </p>
-          )}
-        </div>
+      {/* TipTap Editor — live WYSIWYG markdown */}
+      <div
+        className="rounded-xl border border-border overflow-hidden focus-within:border-primary/50 transition-colors"
+        onClick={() => setShowTemplates(false)}
+      >
+        <EditorContent editor={editor} />
       </div>
 
       {/* Tags */}

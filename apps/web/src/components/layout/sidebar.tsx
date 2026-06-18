@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Search,
   Zap,
+  CheckSquare,
 } from "lucide-react";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import { Separator } from "@my-better-t-app/ui/components/separator";
@@ -39,6 +40,7 @@ interface ParaItem {
 const MAIN_NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: Activity, exact: true },
   { to: "/inbox", label: "Inbox", icon: Inbox, exact: true },
+  { to: "/todos", label: "Todos", icon: CheckSquare },
   { to: "/daily", label: "Daily Note", icon: CalendarDays },
   { to: "/graph", label: "Knowledge Graph", icon: Network },
 ];
@@ -172,7 +174,7 @@ export function Sidebar() {
                   <li key={item.category}>
                     <button
                       onClick={() =>
-                        navigate({ to: "/inbox", search: { para: item.category } })
+                        navigate({ to: "/inbox", search: { para: item.category, type: undefined } })
                       }
                       className={cn(
                         "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
@@ -209,7 +211,7 @@ export function Sidebar() {
                 return (
                   <li key={item.type}>
                     <button
-                      onClick={() => navigate({ to: "/inbox", search: { type: item.type } })}
+                      onClick={() => navigate({ to: "/inbox", search: { type: item.type, para: undefined } })}
                       className={cn(
                         "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
                         active

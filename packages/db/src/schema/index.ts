@@ -5,3 +5,4 @@ export * from "./connections";
 export * from "./daily-notes";
 export * from "./habits";
 export * from "./habit-logs";
+export * from "./tasks";
