@@ -145,15 +145,23 @@ const RESOURCE_TYPE_FILTERS: { value: "all" | NoteTypeFilter; label: string }[] 
   { value: "fleeting",   label: "Fleeting" },
 ];
 
+const ARCHIVE_TAG_FILTERS = [
+  { value: "",           label: "All archived" },
+  { value: "daily-note", label: "Daily Notes" },
+] as const;
+
 function InboxPage() {
   const navigate = useNavigate();
   const { para, type } = Route.useSearch();
   const [filter, setFilter] = useState<FilterType>("all");
   const [resourceTypeFilter, setResourceTypeFilter] = useState<"all" | NoteTypeFilter>("all");
+  const [archiveTagFilter, setArchiveTagFilter] = useState<string>("");
   const [showAI, setShowAI] = useState(false);
 
   const notesParams = type
     ? { type }
+    : para === "archive" && archiveTagFilter
+    ? { status: "archived", tag: archiveTagFilter }
     : para === "archive"
     ? { status: "archived" }
     : para === "resource" && resourceTypeFilter !== "all"
@@ -246,6 +254,26 @@ function InboxPage() {
       {/* AI Suggestions panel */}
       {showAI && para === "area" && (
         <AISuggestionsPanel onClose={() => setShowAI(false)} />
+      )}
+
+      {/* Archive tag filter — Daily Notes, etc. */}
+      {para === "archive" && (
+        <div className="flex gap-1.5 flex-wrap">
+          {ARCHIVE_TAG_FILTERS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setArchiveTagFilter(value)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                archiveTagFilter === value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Resource type filter — shown only in Resources view */}

@@ -12,6 +12,7 @@ import {
   getTableColumns,
   ilike,
   inArray,
+  not,
   or,
   sql,
   type SQL,
@@ -272,4 +273,57 @@ notesRouter.delete("/:id", async (req, res) => {
   const deleted = await db.delete(notes).where(eq(notes.id, req.params.id)).returning({ id: notes.id });
   if (deleted.length === 0) return res.status(404).json({ error: "Note not found" });
   return res.status(204).send();
+});
+
+// ─── GET /notes/todos ─────────────────────────────────────────────────────────
+// Returns all pending (unchecked) todos across non-archived notes
+
+notesRouter.get("/todos", async (_req, res) => {
+  const rows = await db
+    .select({ id: notes.id, title: notes.title, content: notes.content })
+    .from(notes)
+    .where(and(
+      eq(notes.status, "inbox"),
+      // only notes with checkbox syntax
+      sql`${notes.content} LIKE '%- [ ] %'`,
+    ))
+    .orderBy(desc(notes.updatedAt))
+    .limit(200);
+
+  const todos: { noteId: string; noteTitle: string; text: string; lineIndex: number }[] = [];
+
+  for (const note of rows) {
+    const lines = note.content.split("\n");
+    lines.forEach((line, lineIndex) => {
+      const m = line.match(/^- \[ \] (.+)/);
+      if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1].trim(), lineIndex });
+    });
+  }
+
+  return res.json({ todos: todos.slice(0, 30) });
+});
+
+// ─── PATCH /notes/:id/todos ───────────────────────────────────────────────────
+// Toggle a specific todo line in a note
+
+notesRouter.patch("/:id/todos", async (req, res) => {
+  const schema = z.object({ lineIndex: z.number().int().min(0), checked: z.boolean() });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const note = await db.query.notes.findFirst({ where: eq(notes.id, req.params.id) });
+  if (!note) return res.status(404).json({ error: "Note not found" });
+
+  const lines = note.content.split("\n");
+  const { lineIndex, checked } = parsed.data;
+  if (lineIndex >= lines.length) return res.status(400).json({ error: "Invalid line" });
+
+  lines[lineIndex] = lines[lineIndex]
+    .replace(/^- \[ \] /, checked ? "- [x] " : "- [ ] ")
+    .replace(/^- \[x\] /, checked ? "- [x] " : "- [ ] ");
+
+  const newContent = lines.join("\n");
+  await db.update(notes).set({ content: newContent }).where(eq(notes.id, req.params.id));
+
+  return res.json({ content: newContent });
 });

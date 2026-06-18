@@ -3,3 +3,5 @@ export * from "./tags";
 export * from "./note-tags";
 export * from "./connections";
 export * from "./daily-notes";
+export * from "./habits";
+export * from "./habit-logs";

@@ -106,6 +106,27 @@ function toQuery(params?: Record<string, unknown>): string {
   return qs ? `?${qs}` : "";
 }
 
+// ─── Habits types ─────────────────────────────────────────────────────────────
+
+export interface ApiHabit {
+  id: string;
+  name: string;
+  description?: string | null;
+  keywords: string[];
+  color: string;
+  isActive: boolean;
+  completedToday: boolean;
+  logSource: "manual" | "ai" | null;
+  createdAt: string;
+}
+
+export interface ApiTodo {
+  noteId: string;
+  noteTitle: string;
+  text: string;
+  lineIndex: number;
+}
+
 // ─── API client ───────────────────────────────────────────────────────────────
 
 export const api = {
@@ -143,6 +164,33 @@ export const api = {
   vault: {
     stats: () => request<ApiVaultStats>("/vault/stats"),
     graph: () => request<{ nodes: ApiGraphNode[]; edges: ApiGraphEdge[] }>("/vault/graph"),
+  },
+  habits: {
+    list: (date?: string) =>
+      request<ApiHabit[]>(`/habits${date ? `?date=${date}` : ""}`),
+    create: (body: { name: string; description?: string; keywords: string[]; color: string }) =>
+      request<ApiHabit>("/habits", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: string, body: Partial<{ name: string; description: string; keywords: string[]; color: string; isActive: boolean }>) =>
+      request<ApiHabit>(`/habits/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    delete: (id: string) => request<void>(`/habits/${id}`, { method: "DELETE" }),
+    log: (id: string, body: { date?: string; toggle?: boolean; source?: string }) =>
+      request<{ completed: boolean; source?: string }>(`/habits/${id}/log`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    aiDetect: (date?: string) =>
+      request<{ detected: string[]; date: string }>("/habits/ai-detect", {
+        method: "POST",
+        body: JSON.stringify({ date }),
+      }),
+  },
+  todos: {
+    list: () => request<{ todos: ApiTodo[] }>("/notes/todos"),
+    toggle: (noteId: string, lineIndex: number, checked: boolean) =>
+      request<{ content: string }>(`/notes/${noteId}/todos`, {
+        method: "PATCH",
+        body: JSON.stringify({ lineIndex, checked }),
+      }),
   },
   ai: {
     suggestAreas: (notes: Array<{ title: string; type: string; tags: string[] }>) =>

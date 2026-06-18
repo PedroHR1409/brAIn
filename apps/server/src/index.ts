@@ -5,6 +5,7 @@ import express from "express";
 import { aiRouter } from "./routes/ai";
 import { connectionsRouter } from "./routes/connections";
 import { dailyNotesRouter } from "./routes/daily-notes";
+import { habitsRouter } from "./routes/habits";
 import { notesRouter } from "./routes/notes";
 import { tagsRouter } from "./routes/tags";
 import { vaultRouter } from "./routes/vault";
@@ -43,6 +44,7 @@ app.get("/", (_req, res) => {
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.use("/ai", aiRouter);
+app.use("/habits", habitsRouter);
 app.use("/notes", notesRouter);
 app.use("/tags", tagsRouter);
 app.use("/connections", connectionsRouter);

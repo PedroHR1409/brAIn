@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Tag, X, LayoutTemplate, ChevronDown, Download, Pencil } from "lucide-react";
+import { Tag, X, LayoutTemplate, ChevronDown, Download } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
@@ -41,7 +41,12 @@ function preprocessWikiLinks(text: string): string {
 
 // ─── Markdown components ──────────────────────────────────────────────────────
 
-function makeMarkdownComponents(onWikiClick: (title: string) => void) {
+function makeMarkdownComponents(
+  onWikiClick: (title: string) => void,
+  onToggleTodo: (checkboxIndex: number, currentChecked: boolean) => void,
+) {
+  let checkboxCount = 0;
+
   return {
     h1: ({ children }: { children: React.ReactNode }) => (
       <h1 className="text-xl font-bold mb-3 mt-0 text-foreground">{children}</h1>
@@ -101,10 +106,18 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
       );
     },
     hr: () => <hr className="border-border my-4" />,
-    input: ({ type, checked }: { type?: string; checked?: boolean }) =>
-      type === "checkbox" ? (
-        <input type="checkbox" checked={checked} readOnly className="mr-1.5 accent-primary" />
-      ) : null,
+    input: ({ type, checked }: { type?: string; checked?: boolean }) => {
+      if (type !== "checkbox") return null;
+      const idx = checkboxCount++;
+      return (
+        <input
+          type="checkbox"
+          checked={checked ?? false}
+          onChange={() => onToggleTodo(idx, checked ?? false)}
+          className="mr-1.5 accent-primary cursor-pointer"
+        />
+      );
+    },
   } as Parameters<typeof ReactMarkdown>[0]["components"];
 }
 
@@ -116,9 +129,6 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
   const [content, setContent] = useState(note.content ?? "");
   const [tagInput, setTagInput] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
-
-  // Preview vs edit — start in edit mode if note is empty
-  const [editing, setEditing] = useState(!note.content);
 
   // Wiki-link autocomplete
   const [wikiQuery, setWikiQuery] = useState<string | null>(null);
@@ -147,17 +157,6 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     }, delay);
     return () => clearTimeout(timer);
   }, [wikiQuery, note.id]);
-
-  function enterEditMode() {
-    setEditing(true);
-    requestAnimationFrame(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const len = textareaRef.current.value.length;
-        textareaRef.current.setSelectionRange(len, len);
-      }
-    });
-  }
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value);
@@ -189,18 +188,24 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         return;
       }
     }
-    if (e.key === "Escape" && !wikiQuery) {
-      e.preventDefault();
+    if (e.key === "Escape") {
       setWikiQuery(null);
       setWikiResults([]);
-      setEditing(false);
     }
   }
 
-  function handleBlur() {
-    setWikiQuery(null);
-    setWikiResults([]);
-    setEditing(false);
+  function toggleTodo(checkboxIndex: number, currentChecked: boolean) {
+    let count = 0;
+    const newContent = content.replace(/^(- \[[ x]\] )/gm, (match) => {
+      if (count === checkboxIndex) {
+        count++;
+        return currentChecked ? "- [ ] " : "- [x] ";
+      }
+      count++;
+      return match;
+    });
+    setContent(newContent);
+    onUpdate({ content: newContent });
   }
 
   const selectWikiNote = useCallback((selected: ApiNote) => {
@@ -229,7 +234,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     setContent(templateContent);
     onUpdate({ content: templateContent });
     setShowTemplates(false);
-    enterEditMode();
+    textareaRef.current?.focus();
   }
 
   function addTag(raw: string) {
@@ -271,7 +276,8 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     } catch {}
   }
 
-  const mdComponents = makeMarkdownComponents(navigateToWikiTitle);
+  // Recreate mdComponents each render so the checkbox counter resets to 0
+  const mdComponents = makeMarkdownComponents(navigateToWikiTitle, toggleTodo);
 
   return (
     <div className="flex flex-col gap-5">
@@ -380,40 +386,42 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         </div>
       )}
 
-      {/* Content — single pane: preview or edit */}
-      {editing ? (
+      {/* Editor — textarea on top (always), live preview below (always) */}
+      <div className="rounded-xl border border-border overflow-hidden focus-within:border-primary/50 transition-colors">
+        {/* Textarea — always editable */}
         <textarea
           ref={textareaRef}
           value={content}
           onChange={handleContentChange}
           onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-          placeholder={"Write here…\n\nFull Markdown support: **bold**, *italic*, ## headings, - lists, ```code```\n\nUse [[Note Name]] to connect notes."}
-          className="min-h-[480px] w-full resize-none rounded-xl border border-border bg-card p-5 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-none focus:border-primary/50 transition-colors"
+          placeholder={"Write here…\n\nMarkdown: **bold**, *italic*, ## heading, - list, - [ ] todo\n\nUse [[Note Name]] to link notes."}
+          className="min-h-52 w-full resize-none bg-card p-5 font-mono text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-none border-none"
           onClick={() => setShowTemplates(false)}
         />
-      ) : (
-        <div
-          className="min-h-[480px] rounded-xl border border-border bg-card p-5 text-sm leading-relaxed cursor-text group relative"
-          onClick={enterEditMode}
-        >
-          {/* Edit hint on hover */}
-          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 rounded-md bg-muted/80 px-2 py-1 text-[10px] text-muted-foreground">
-            <Pencil className="size-3" />
-            Click to edit
-          </div>
 
+        {/* Divider */}
+        <div className="flex items-center gap-2 border-t border-border bg-muted/20 px-4 py-1.5">
+          <span className="text-[10px] text-muted-foreground font-medium">Live Preview</span>
+          {content.match(/^- \[[ x]\] /m) && (
+            <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+              checkboxes are interactive
+            </span>
+          )}
+        </div>
+
+        {/* Live preview — always rendered, updates on every keystroke */}
+        <div className="min-h-32 bg-card p-5 text-sm leading-relaxed">
           {content ? (
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
               {preprocessWikiLinks(content)}
             </ReactMarkdown>
           ) : (
             <p className="text-muted-foreground/30 italic text-sm">
-              Click to start writing…
+              Markdown preview will appear here as you type…
             </p>
           )}
         </div>
-      )}
+      </div>
 
       {/* Tags */}
       <div className="flex flex-col gap-2">

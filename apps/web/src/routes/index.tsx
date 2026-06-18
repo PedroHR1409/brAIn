@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Brain } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { VaultHealth } from "@/components/dashboard/vault-health";
 import { AiSuggestions } from "@/components/dashboard/ai-suggestions";
+import { HabitTracker } from "@/components/dashboard/habit-tracker";
+import { TodoWidget } from "@/components/dashboard/todo-widget";
 import { NoteCard } from "@/components/notes/note-card";
 import { useNotes } from "@/hooks/use-notes";
 import { useVaultStats } from "@/hooks/use-vault-stats";
@@ -23,58 +25,67 @@ function DashboardPage() {
   const { notes, loading: notesLoading } = useNotes({ limit: 6 });
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-          <Brain className="size-5 text-primary" />
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <div className="flex gap-6 items-start">
+        {/* ── Main column ── */}
+        <div className="flex-1 min-w-0 space-y-8">
+          {/* Header */}
+          <div className="flex items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+              <LayoutDashboard className="size-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
+              <p className="text-xs text-muted-foreground capitalize">{today}</p>
+            </div>
+          </div>
+
+          <VaultHealth stats={stats} loading={statsLoading} />
+
+          {/* Recent Notes */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">Recent notes</h2>
+              <button
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => navigate({ to: "/inbox" })}
+              >
+                View all →
+              </button>
+            </div>
+
+            {notesLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-36 rounded-xl" />
+                ))}
+              </div>
+            ) : notes.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No notes yet. Use Quick Capture to get started.
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {notes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    onClick={() => navigate({ to: "/notes/$id", params: { id: note.id } })}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          <AiSuggestions inboxCount={stats?.pending ?? 0} />
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Your Vault</h1>
-          <p className="text-xs text-muted-foreground capitalize">{today}</p>
+
+        {/* ── Right sidebar: Habits + Todos ── */}
+        <div className="w-72 shrink-0 hidden lg:flex flex-col gap-4 sticky top-6">
+          <HabitTracker />
+          <TodoWidget />
         </div>
       </div>
-
-      {/* Vault Health */}
-      <VaultHealth stats={stats} loading={statsLoading} />
-
-      {/* Recent Notes */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Recent notes</h2>
-          <button
-            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => navigate({ to: "/inbox" })}
-          >
-            View all →
-          </button>
-        </div>
-
-        {notesLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-36 rounded-xl" />
-            ))}
-          </div>
-        ) : notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            No notes yet. Use Quick Capture to get started.
-          </p>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onClick={() => navigate({ to: "/notes/$id", params: { id: note.id } })}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* AI Suggestions */}
-      <AiSuggestions inboxCount={stats?.pending ?? 0} />
     </div>
   );
 }
