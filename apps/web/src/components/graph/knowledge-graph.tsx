@@ -66,9 +66,9 @@ function computeLayout(nodes: ApiGraphNode[], W = 860, H = 540): LayoutNode[] {
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
 const COLOR: Record<string, { fill: string; stroke: string }> = {
-  permanent: { fill: "#10B981", stroke: "#34D399" },
+  permanent:  { fill: "#10B981", stroke: "#34D399" },
   literature: { fill: "#3B82F6", stroke: "#60A5FA" },
-  fleeting:   { fill: "#F59E0B", stroke: "#FBBF24" },
+  fleeting:   { fill: "#A855F7", stroke: "#C084FC" },
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -79,15 +79,19 @@ export function KnowledgeGraph() {
   const [edges, setEdges] = useState<ApiGraphEdge[]>([]);
   const [hovered, setHovered] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [graphError, setGraphError] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
 
   async function load() {
     setLoading(true);
+    setGraphError(null);
     try {
       const data = await api.vault.graph();
       const rawEdges = data.edges ?? [];
       setEdges(rawEdges);
       setNodes(computeLayout(data.nodes ?? []));
+    } catch (e) {
+      setGraphError(e instanceof Error ? e.message : "Failed to load graph");
     } finally {
       setLoading(false);
     }
@@ -127,9 +131,15 @@ export function KnowledgeGraph() {
             <p className="text-xs text-muted-foreground">Computing graph…</p>
           </div>
         </div>
+      ) : graphError ? (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+          <p className="text-sm text-destructive font-medium">Failed to load graph</p>
+          <p className="text-xs text-muted-foreground">{graphError}</p>
+          <Button variant="outline" size="sm" onClick={load} className="mt-1">Retry</Button>
+        </div>
       ) : nodes.length === 0 ? (
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground">Create notes and link them with [[wikilinks]] to see the graph.</p>
+          <p className="text-sm text-muted-foreground">Create notes — they'll appear here even without connections.</p>
         </div>
       ) : (
         <svg

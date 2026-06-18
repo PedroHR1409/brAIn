@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const today = new Date().toLocaleDateString("pt-BR", {
+  const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -30,7 +30,7 @@ function DashboardPage() {
           <Brain className="size-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-bold text-foreground">Sua Vault</h1>
+          <h1 className="text-xl font-bold text-foreground">Your Vault</h1>
           <p className="text-xs text-muted-foreground capitalize">{today}</p>
         </div>
       </div>
@@ -41,12 +41,13 @@ function DashboardPage() {
       {/* Recent Notes */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">
-            Notas recentes
-          </h2>
-          <span className="text-[10px] text-muted-foreground">
-            Ver todas →
-          </span>
+          <h2 className="text-sm font-semibold text-foreground">Recent notes</h2>
+          <button
+            className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => navigate({ to: "/inbox" })}
+          >
+            View all →
+          </button>
         </div>
 
         {notesLoading ? (
@@ -57,7 +58,7 @@ function DashboardPage() {
           </div>
         ) : notes.length === 0 ? (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            Nenhuma nota ainda. Use a captura rápida para começar.
+            No notes yet. Use Quick Capture to get started.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -73,7 +74,7 @@ function DashboardPage() {
       </section>
 
       {/* AI Suggestions */}
-      <AiSuggestions />
+      <AiSuggestions inboxCount={stats?.pending ?? 0} />
     </div>
   );
 }

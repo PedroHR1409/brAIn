@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Search,
   Zap,
-  BookMarked,
 } from "lucide-react";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import { Separator } from "@my-better-t-app/ui/components/separator";
@@ -52,8 +51,7 @@ const PARA_NAV: ParaItem[] = [
 ];
 
 const ZETTELKASTEN_NAV = [
-  { type: "permanent" as const, label: "Notas Permanentes", icon: Zap },
-  { type: "literature" as const, label: "Literature Notes",  icon: BookMarked },
+  { type: "permanent" as const, label: "Permanent Notes", icon: Zap },
 ];
 
 const VAULT_NAV: NavItem[] = [

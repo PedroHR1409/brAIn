@@ -11,7 +11,7 @@ function GraphPage() {
       <div>
         <h1 className="text-xl font-bold text-foreground">Knowledge Graph</h1>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Visualize as conexões entre suas notas
+          Visualize connections between your notes
         </p>
       </div>
       <div className="flex-1 min-h-0">

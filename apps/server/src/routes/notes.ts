@@ -252,12 +252,18 @@ notesRouter.post("/:id/process", async (req, res) => {
   const [note] = await db
     .update(notes)
     .set({ ...parsed.data, processedAt: new Date() })
-    .where(and(eq(notes.id, req.params.id), eq(notes.type, "fleeting")))
+    .where(eq(notes.id, req.params.id))
     .returning();
 
-  if (!note) return res.status(404).json({ error: "Fleeting note not found" });
+  if (!note) return res.status(404).json({ error: "Note not found" });
 
-  return res.json(note);
+  const tagRows = await db
+    .select({ name: tags.name })
+    .from(noteTags)
+    .innerJoin(tags, eq(noteTags.tagId, tags.id))
+    .where(eq(noteTags.noteId, note.id));
+
+  return res.json({ ...note, tags: tagRows.map((r) => r.name) });
 });
 
 // ─── DELETE /notes/:id ────────────────────────────────────────────────────────

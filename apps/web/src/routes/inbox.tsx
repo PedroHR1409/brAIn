@@ -137,16 +137,27 @@ function AISuggestionsPanel({ onClose }: { onClose: () => void }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// Extra type filter only shown in Resources view
+const RESOURCE_TYPE_FILTERS: { value: "all" | NoteTypeFilter; label: string }[] = [
+  { value: "all",        label: "All" },
+  { value: "literature", label: "Literature" },
+  { value: "permanent",  label: "Permanent" },
+  { value: "fleeting",   label: "Fleeting" },
+];
+
 function InboxPage() {
   const navigate = useNavigate();
   const { para, type } = Route.useSearch();
   const [filter, setFilter] = useState<FilterType>("all");
+  const [resourceTypeFilter, setResourceTypeFilter] = useState<"all" | NoteTypeFilter>("all");
   const [showAI, setShowAI] = useState(false);
 
   const notesParams = type
     ? { type }
     : para === "archive"
     ? { status: "archived" }
+    : para === "resource" && resourceTypeFilter !== "all"
+    ? { para, type: resourceTypeFilter }
     : para
     ? { para }
     : { status: "inbox" };
@@ -235,6 +246,26 @@ function InboxPage() {
       {/* AI Suggestions panel */}
       {showAI && para === "area" && (
         <AISuggestionsPanel onClose={() => setShowAI(false)} />
+      )}
+
+      {/* Resource type filter — shown only in Resources view */}
+      {para === "resource" && (
+        <div className="flex gap-1.5 flex-wrap">
+          {RESOURCE_TYPE_FILTERS.map(({ value, label }) => (
+            <button
+              key={value}
+              onClick={() => setResourceTypeFilter(value)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                resourceTypeFilter === value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Overdue warning — inbox only */}

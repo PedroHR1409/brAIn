@@ -31,10 +31,12 @@ const TEMPLATES = [
 
 // ─── Wiki-link preprocessing ──────────────────────────────────────────────────
 
+// Supports [[Target]] and [[Target|Display text]] (Obsidian alias syntax)
 function preprocessWikiLinks(text: string): string {
-  return text.replace(/\[\[([^\]]+)\]\]/g, (_, title) =>
-    `[${title}](wikilink:${encodeURIComponent(title)})`
-  );
+  return text.replace(/\[\[([^\]|]+?)(?:\|([^\]]*))?\]\]/g, (_, target, display) => {
+    const label = (display ?? target).trim() || target.trim();
+    return `[${label}](wikilink:${encodeURIComponent(target.trim())})`;
+  });
 }
 
 // ─── Markdown components ──────────────────────────────────────────────────────
@@ -82,13 +84,13 @@ function makeMarkdownComponents(onWikiClick: (title: string) => void) {
     ),
     a: ({ children, href }: { children: React.ReactNode; href?: string }) => {
       if (href?.startsWith("wikilink:")) {
-        const title = decodeURIComponent(href.slice(9));
+        const target = decodeURIComponent(href.slice(9));
         return (
           <span
             className="text-primary border-b border-primary/40 cursor-pointer hover:text-primary/70 transition-colors font-medium"
-            onClick={(e) => { e.stopPropagation(); onWikiClick(title); }}
+            onClick={(e) => { e.stopPropagation(); onWikiClick(target); }}
           >
-            [[{title}]]
+            {children}
           </span>
         );
       }
@@ -167,7 +169,8 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     const cursor = e.target.selectionStart ?? val.length;
     wikiCursorRef.current = cursor;
     const before = val.slice(0, cursor);
-    const wikiMatch = before.match(/\[\[([^\][\n]*)$/);
+    // Stop autocomplete once user types | (they're writing the display alias)
+    const wikiMatch = before.match(/\[\[([^\][\n|]*)$/);
     setWikiQuery(wikiMatch ? wikiMatch[1] : null);
     setContent(val);
     onUpdate({ content: val });

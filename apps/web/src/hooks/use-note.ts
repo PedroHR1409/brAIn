@@ -21,7 +21,7 @@ export function useNote(id: string) {
       setNote(data);
       noteRef.current = data;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar nota");
+      setError(e instanceof Error ? e.message : "Error loading note");
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ export function useNote(id: string) {
           noteRef.current = saved;
           brainEvents.emit("note-updated");
         } catch (e) {
-          setError(e instanceof Error ? e.message : "Erro ao salvar");
+          setError(e instanceof Error ? e.message : "Error saving note");
         } finally {
           setSaving(false);
         }
@@ -63,10 +63,12 @@ export function useNote(id: string) {
       setProcessing(true);
       try {
         const saved = await api.notes.process(id, { type });
-        setNote(saved);
-        noteRef.current = saved;
+        // Preserve existing tags if server omits them (defensive)
+        const merged: ApiNote = { ...saved, tags: saved.tags ?? noteRef.current?.tags ?? [] };
+        setNote(merged);
+        noteRef.current = merged;
         brainEvents.emit("note-updated");
-        return saved;
+        return merged;
       } finally {
         setProcessing(false);
       }
