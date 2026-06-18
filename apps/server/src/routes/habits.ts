@@ -59,7 +59,19 @@ habitsRouter.patch("/:id", async (req, res) => {
 
   const [habit] = await db.update(habits).set(parsed.data).where(eq(habits.id, req.params.id)).returning();
   if (!habit) return res.status(404).json({ error: "Habit not found" });
-  return res.json(habit);
+
+  // Include today's log status so the client doesn't lose completedToday / logSource
+  const today = todayISO();
+  const [log] = await db
+    .select({ source: habitLogs.source })
+    .from(habitLogs)
+    .where(and(eq(habitLogs.habitId, habit.id), eq(habitLogs.date, today)));
+
+  return res.json({
+    ...habit,
+    completedToday: !!log,
+    logSource: log?.source ?? null,
+  });
 });
 
 // ─── DELETE /habits/:id ───────────────────────────────────────────────────────

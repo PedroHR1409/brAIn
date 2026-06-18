@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CalendarDays, BookOpen, Sun, Moon, Loader2, Archive } from "lucide-react";
+import { CalendarDays, BookOpen, Sun, Moon, Loader2, Archive, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
 import { Textarea } from "@my-better-t-app/ui/components/textarea";
@@ -30,7 +30,7 @@ function DailyPage() {
     year: "numeric",
   });
 
-  const { note, loading, saving, save } = useDailyNote(dateKey);
+  const { note, loading, saving, save, error } = useDailyNote(dateKey);
   const { notes: todayNotes, loading: notesLoading } = useNotes({
     type: "fleeting",
     status: "inbox",
@@ -91,6 +91,14 @@ function DailyPage() {
           </Button>
         </div>
       </div>
+
+      {/* Save/load error */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertCircle className="size-4 text-destructive shrink-0" />
+          <p className="text-xs text-destructive">{error}</p>
+        </div>
+      )}
 
       {/* Morning intention */}
       <section className="space-y-3">

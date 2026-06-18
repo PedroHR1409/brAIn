@@ -316,8 +316,8 @@ notesRouter.patch("/:id/todos", async (req, res) => {
   if (lineIndex >= lines.length) return res.status(400).json({ error: "Invalid line" });
 
   lines[lineIndex] = (lines[lineIndex] ?? "")
-    .replace(/^([-*]) \[ \] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `)
-    .replace(/^([-*]) \[x\] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `);
+    .replace(/^(\s*[-*]) \[ \] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `)
+    .replace(/^(\s*[-*]) \[x\] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `);
 
   const newContent = lines.join("\n");
   await db.update(notes).set({ content: newContent }).where(eq(notes.id, req.params.id));

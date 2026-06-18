@@ -80,8 +80,9 @@ export function useInboxCount() {
 
   const fetch = useCallback(async () => {
     try {
-      const { total } = await api.notes.list({ status: "inbox", limit: 1 });
-      setCount(total);
+      // Use a high limit — `total` in the response is page-length, not overall count
+      const { data } = await api.notes.list({ status: "inbox", limit: 200 });
+      setCount(data.length);
     } catch {}
   }, []);
 

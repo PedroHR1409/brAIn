@@ -143,17 +143,19 @@ function AddTaskRow({
 function SubtasksPanel({ parentId, onSubtaskCreate }: { parentId: string; onSubtaskCreate?: () => void }) {
   const [subtasks, setSubtasks] = useState<ApiTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   async function load() {
     try {
-      const { tasks } = await api.tasks.list({ parentId });
+      // Fetch all subtasks (pending + completed) so we can show/hide completed
+      const { tasks } = await api.tasks.list({ parentId, completed: true });
       setSubtasks(tasks);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { load(); }, [parentId]);
+  useEffect(() => { load(); }, [parentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleSubtask(task: ApiTask) {
     try {
@@ -175,9 +177,14 @@ function SubtasksPanel({ parentId, onSubtaskCreate }: { parentId: string; onSubt
 
   if (loading) return <div className="py-2 text-[11px] text-muted-foreground">Loading…</div>;
 
+  const completedCount = subtasks.filter((s) => s.completed).length;
+  const visible = showCompleted
+    ? subtasks
+    : subtasks.filter((s) => !s.completed);
+
   return (
     <div className="space-y-1">
-      {subtasks.map((sub) => (
+      {visible.map((sub) => (
         <div key={sub.id} className="group flex items-center gap-2 py-1">
           <button onClick={() => toggleSubtask(sub)} className="shrink-0">
             {sub.completed
@@ -196,6 +203,14 @@ function SubtasksPanel({ parentId, onSubtaskCreate }: { parentId: string; onSubt
           </button>
         </div>
       ))}
+      {completedCount > 0 && (
+        <button
+          onClick={() => setShowCompleted((v) => !v)}
+          className="text-[10px] text-muted-foreground hover:text-foreground transition-colors py-0.5"
+        >
+          {showCompleted ? `Hide ${completedCount} completed` : `Show ${completedCount} completed`}
+        </button>
+      )}
       <AddTaskRow
         parentId={parentId}
         onAdd={(task) => { setSubtasks((prev) => [...prev, task]); onSubtaskCreate?.(); }}

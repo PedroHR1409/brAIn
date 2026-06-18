@@ -7,7 +7,10 @@ import { Textarea } from "@my-better-t-app/ui/components/textarea";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import type { ApiVaultStats } from "@/lib/api";
 
-const BASE = (import.meta.env.VITE_SERVER_URL as string | undefined) ?? "http://localhost:3000";
+const rawApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const BASE = rawApiUrl
+  ? rawApiUrl.startsWith("http") ? rawApiUrl : `https://${rawApiUrl}`
+  : "http://localhost:3000";
 
 interface ChatInterfaceProps {
   vaultStats: ApiVaultStats | null;
