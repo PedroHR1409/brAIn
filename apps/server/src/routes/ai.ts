@@ -62,7 +62,7 @@ For each area:
 3. One sentence explaining why these notes belong together
 
 Format as markdown with ## headers for each area. Focus on themes that genuinely emerge from the notes — don't force groupings. If notes don't cluster naturally, say so.`,
-      maxTokens: 1500,
+      maxOutputTokens: 1500,
     });
     return res.json({ suggestions: text });
   } catch (err) {

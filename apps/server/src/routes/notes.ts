@@ -281,11 +281,10 @@ notesRouter.get("/todos", async (_req, res) => {
   const rows = await db
     .select({ id: notes.id, title: notes.title, content: notes.content })
     .from(notes)
-    .where(and(
-      eq(notes.status, "inbox"),
-      // only notes with checkbox syntax
-      sql`${notes.content} LIKE '%- [ ] %'`,
-    ))
+    .where(
+      // match both "- [ ] " (tiptap-markdown / standard) and "* [ ] " (alternate bullet)
+      sql`(${notes.content} LIKE '%- [ ] %' OR ${notes.content} LIKE '%* [ ] %')`,
+    )
     .orderBy(desc(notes.updatedAt))
     .limit(200);
 
@@ -294,7 +293,7 @@ notesRouter.get("/todos", async (_req, res) => {
   for (const note of rows) {
     const lines = note.content.split("\n");
     lines.forEach((line, lineIndex) => {
-      const m = line.match(/^- \[ \] (.+)/);
+      const m = line.match(/^[-*] \[ \] (.+)/);
       if (m) todos.push({ noteId: note.id, noteTitle: note.title, text: m[1]!.trim(), lineIndex });
     });
   }
@@ -318,8 +317,8 @@ notesRouter.patch("/:id/todos", async (req, res) => {
   if (lineIndex >= lines.length) return res.status(400).json({ error: "Invalid line" });
 
   lines[lineIndex] = (lines[lineIndex] ?? "")
-    .replace(/^- \[ \] /, checked ? "- [x] " : "- [ ] ")
-    .replace(/^- \[x\] /, checked ? "- [x] " : "- [ ] ");
+    .replace(/^([-*]) \[ \] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `)
+    .replace(/^([-*]) \[x\] /, (_, b) => checked ? `${b} [x] ` : `${b} [ ] `);
 
   const newContent = lines.join("\n");
   await db.update(notes).set({ content: newContent }).where(eq(notes.id, req.params.id));

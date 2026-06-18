@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Tag, X, LayoutTemplate, ChevronDown, Download, CheckSquare } from "lucide-react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
@@ -33,6 +35,53 @@ const TEMPLATES = [
   { id: "resource",   label: "Resource",        content: "## About\n\n\n## Key Points\n\n\n## Practical Application\n\n" },
 ] as const;
 
+// ─── Wiki-link decoration extension ──────────────────────────────────────────
+// Finds [[Target]] and [[Target|Display]] patterns in the editor text and:
+//  1. Highlights them as clickable links (via CSS class)
+//  2. Handles click → navigate to the target note
+
+const WIKI_LINK_RE = /\[\[([^\]|[\n]+?)(?:\|([^\][\n]*))?\]\]/g;
+const WIKI_PLUGIN_KEY = new PluginKey("wikiLinkDecoration");
+
+function createWikiLinkExtension(onClickRef: React.RefObject<(target: string) => void>) {
+  return Extension.create({
+    name: "wikiLinkDecoration",
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: WIKI_PLUGIN_KEY,
+          props: {
+            decorations(state) {
+              const decos: Decoration[] = [];
+              state.doc.descendants((node, pos) => {
+                if (!node.isText || !node.text) return;
+                WIKI_LINK_RE.lastIndex = 0;
+                let m: RegExpExecArray | null;
+                while ((m = WIKI_LINK_RE.exec(node.text)) !== null) {
+                  decos.push(
+                    Decoration.inline(pos + m.index, pos + m.index + m[0].length, {
+                      class: "wiki-link-inline",
+                      "data-wiki-target": m[1].trim(),
+                    }),
+                  );
+                }
+              });
+              return DecorationSet.create(state.doc, decos);
+            },
+            handleClick(_view, _pos, event) {
+              const el = (event.target as HTMLElement).closest(".wiki-link-inline");
+              if (!el) return false;
+              const target = el.getAttribute("data-wiki-target");
+              if (target) onClickRef.current?.(target);
+              return true;
+            },
+          },
+        }),
+      ];
+    },
+  });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps) {
@@ -49,17 +98,26 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
   const tagInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef(note.content ?? "");
 
-  // ─── TipTap editor setup ─────────────────────────────────────────────────────
+  // Stable ref for the wiki-click handler (avoids recreating TipTap extension)
+  const wikiClickHandlerRef = useRef<(target: string) => void>(() => {});
+
+  // ─── TipTap wiki-link extension (stable — created once) ───────────────────────
+
+  const wikiLinkExtension = useMemo(
+    () => createWikiLinkExtension(wikiClickHandlerRef),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // ─── TipTap editor ───────────────────────────────────────────────────────────
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        // Disable history shortcut conflicts — handled by StarterKit defaults
-      }),
+      StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({
-        placeholder: "Write here…\n\nUse **bold**, *italic*, ## heading, - list, - [ ] todo\nType [[ to link notes.",
+        placeholder: "Write here…\n\nUse **bold**, *italic*, ## Heading, - [ ] todo\nType [[ to link notes.",
         emptyEditorClass: "is-editor-empty",
       }),
       Markdown.configure({
@@ -67,6 +125,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         transformPastedText: true,
         transformCopiedText: false,
       }),
+      wikiLinkExtension,
     ],
     content: note.content ?? "",
     onUpdate: ({ editor }) => {
@@ -75,36 +134,41 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
       contentRef.current = markdown;
       onUpdate({ content: markdown });
 
-      // Wiki-link detection
+      // Wiki-link autocomplete detection
       const { from } = editor.state.selection;
-      const textBefore = editor.state.doc.textBetween(
-        Math.max(0, from - 200),
-        from,
-        "\n",
-      );
+      const textBefore = editor.state.doc.textBetween(Math.max(0, from - 200), from, "\n");
       const match = textBefore.match(/\[\[([^\][\n|]*)$/);
       setWikiQuery(match ? match[1] : null);
     },
     editorProps: {
-      attributes: {
-        class: "tiptap-brain-editor",
-      },
+      attributes: { class: "tiptap-brain-editor" },
     },
   });
 
-  // Update editor when note changes (navigating between notes)
+  // ─── Wire click handler to latest navigate function ───────────────────────────
+
+  async function navigateToWikiTitle(wikiTarget: string) {
+    try {
+      const { data } = await api.notes.list({ q: wikiTarget, limit: 5 });
+      const match = data.find((n) => n.title.toLowerCase() === wikiTarget.toLowerCase());
+      if (match) navigate({ to: "/notes/$id", params: { id: match.id } });
+    } catch {}
+  }
+
+  useEffect(() => {
+    wikiClickHandlerRef.current = navigateToWikiTitle;
+  });
+
+  // ─── Reset editor content when navigating between notes ───────────────────────
+
   useEffect(() => {
     if (!editor) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const markdown = (editor.storage as any).markdown.getMarkdown() as string;
-    if (markdown !== (note.content ?? "")) {
-      editor.commands.setContent(note.content ?? "");
-      contentRef.current = note.content ?? "";
-    }
+    editor.commands.setContent(note.content ?? "");
+    contentRef.current = note.content ?? "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
-  // ─── Wiki-link search ────────────────────────────────────────────────────────
+  // ─── Wiki-link search ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (wikiQuery === null) { setWikiResults([]); return; }
@@ -132,7 +196,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     editor.chain()
       .focus()
       .deleteRange({ from: from - match[0].length, to: from })
-      .insertContent(`[[${selected.title}]] `)
+      .insertContent(`[[${selected.title}]]`)
       .run();
 
     setWikiQuery(null);
@@ -140,11 +204,10 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
     if (onAddConnection) onAddConnection(selected.id).catch(() => {});
   }, [editor, onAddConnection]);
 
-  // ─── Keyboard handling in wiki autocomplete ───────────────────────────────────
+  // ─── Escape / Enter in wiki autocomplete ──────────────────────────────────────
 
   useEffect(() => {
     if (!editor || wikiQuery === null) return;
-
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") { setWikiQuery(null); setWikiResults([]); }
       if (e.key === "Enter" && wikiResults.length > 0) {
@@ -152,13 +215,12 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         selectWikiNote(wikiResults[0]);
       }
     };
-
     const el = editor.view.dom;
     el.addEventListener("keydown", handler, { capture: true });
     return () => el.removeEventListener("keydown", handler, { capture: true });
   }, [editor, wikiQuery, wikiResults, selectWikiNote]);
 
-  // ─── Toolbar actions ──────────────────────────────────────────────────────────
+  // ─── Toolbar ──────────────────────────────────────────────────────────────────
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setTitle(e.target.value);
@@ -179,17 +241,14 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
 
   function exportMarkdown() {
     const slug = title.replace(/[^a-z0-9]/gi, "-").toLowerCase();
-    const content = contentRef.current;
-    const blob = new Blob([`# ${title}\n\n${content}`], { type: "text/markdown" });
+    const blob = new Blob([`# ${title}\n\n${contentRef.current}`], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `${slug}.md`;
-    a.click();
+    a.href = url; a.download = `${slug}.md`; a.click();
     URL.revokeObjectURL(url);
   }
 
-  // ─── Tags ────────────────────────────────────────────────────────────────────
+  // ─── Tags ─────────────────────────────────────────────────────────────────────
 
   function addTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
@@ -203,16 +262,13 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
   }
 
   function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag(tagInput);
-    } else if (e.key === "Backspace" && tagInput === "" && note.tags.length > 0) {
+    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); }
+    else if (e.key === "Backspace" && tagInput === "" && note.tags.length > 0) {
       removeTag(note.tags[note.tags.length - 1]);
     }
   }
 
   const wordCount = editor?.getText()?.trim().split(/\s+/).filter(Boolean).length ?? 0;
-  const charCount = contentRef.current.length;
 
   return (
     <div className="flex flex-col gap-5">
@@ -227,11 +283,9 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
       {/* Toolbar */}
       <div className="flex items-center justify-between -mb-2">
         <div className="flex items-center gap-1">
-          {/* Templates */}
           <div className="relative">
             <Button
-              variant="ghost"
-              size="sm"
+              variant="ghost" size="sm"
               className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
               onClick={() => setShowTemplates((v) => !v)}
             >
@@ -242,11 +296,8 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             {showTemplates && (
               <div className="absolute left-0 top-full z-20 mt-1 w-44 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
                 {TEMPLATES.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => applyTemplate(t.content)}
-                    className="flex w-full items-center px-3 py-2 text-xs text-left hover:bg-accent transition-colors"
-                  >
+                  <button key={t.id} onClick={() => applyTemplate(t.content)}
+                    className="flex w-full items-center px-3 py-2 text-xs text-left hover:bg-accent transition-colors">
                     {t.label}
                   </button>
                 ))}
@@ -254,25 +305,16 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             )}
           </div>
 
-          {/* Insert Todo */}
-          <Button
-            variant="ghost"
-            size="sm"
+          <Button variant="ghost" size="sm"
             className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-            onClick={insertTodo}
-            title="Insert checkbox / task list"
-          >
+            onClick={insertTodo} title="Insert checkbox / task list">
             <CheckSquare className="size-3" />
             Todo
           </Button>
 
-          {/* Export */}
-          <Button
-            variant="ghost"
-            size="sm"
+          <Button variant="ghost" size="sm"
             className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
-            onClick={exportMarkdown}
-          >
+            onClick={exportMarkdown}>
             <Download className="size-3" />
             Export .md
           </Button>
@@ -281,7 +323,7 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
         <div className="flex items-center gap-2 text-[10px] text-muted-foreground select-none">
           <span>{wordCount} {wordCount === 1 ? "word" : "words"}</span>
           <span className="opacity-40">·</span>
-          <span>{charCount} chars</span>
+          <span>{contentRef.current.length} chars</span>
         </div>
       </div>
 
@@ -289,17 +331,11 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
       {wikiQuery !== null && (
         <div className="rounded-xl border border-primary/30 bg-card shadow-lg overflow-hidden">
           <div className="flex items-center gap-2 border-b border-border px-3 py-2 bg-muted/30">
-            <span className="text-[11px] font-semibold text-primary">Connect via [[wikilink]]</span>
-            {wikiQuery && (
-              <span className="text-[10px] text-muted-foreground">searching &ldquo;{wikiQuery}&rdquo;</span>
-            )}
-            {wikiSearching && (
-              <div className="ml-auto size-3 rounded-full border border-primary border-t-transparent animate-spin" />
-            )}
-            <button
-              className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              onMouseDown={(e) => { e.preventDefault(); setWikiQuery(null); }}
-            >
+            <span className="text-[11px] font-semibold text-primary">Link via [[wikilink]]</span>
+            {wikiQuery && <span className="text-[10px] text-muted-foreground">searching &ldquo;{wikiQuery}&rdquo;</span>}
+            {wikiSearching && <div className="ml-auto size-3 rounded-full border border-primary border-t-transparent animate-spin" />}
+            <button className="ml-auto text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+              onMouseDown={(e) => { e.preventDefault(); setWikiQuery(null); }}>
               Esc to close
             </button>
           </div>
@@ -310,14 +346,12 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
           ) : (
             <div className="flex flex-wrap gap-1.5 p-2.5">
               {wikiResults.map((n, idx) => (
-                <button
-                  key={n.id}
+                <button key={n.id}
                   onMouseDown={(e) => { e.preventDefault(); selectWikiNote(n); }}
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-colors hover:bg-accent",
                     idx === 0 && wikiQuery ? "border-primary/40 bg-primary/5" : "border-border",
-                  )}
-                >
+                  )}>
                   <span className={cn("size-2 rounded-full shrink-0", {
                     "bg-note-permanent": n.type === "permanent",
                     "bg-note-literature": n.type === "literature",
@@ -330,12 +364,14 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
             </div>
           )}
           <div className="border-t border-border px-3 py-1.5">
-            <p className="text-[10px] text-muted-foreground">Enter to select the first result · Esc to close</p>
+            <p className="text-[10px] text-muted-foreground">
+              Enter to select · Esc to close · Use [[Note|Display name]] for alias
+            </p>
           </div>
         </div>
       )}
 
-      {/* TipTap Editor — live WYSIWYG markdown */}
+      {/* TipTap WYSIWYG editor */}
       <div
         className="rounded-xl border border-border overflow-hidden focus-within:border-primary/50 transition-colors"
         onClick={() => setShowTemplates(false)}
@@ -354,16 +390,11 @@ export function NoteEditor({ note, onUpdate, onAddConnection }: NoteEditorProps)
           onClick={() => tagInputRef.current?.focus()}
         >
           {note.tags.map((tag) => (
-            <span
-              key={tag}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent text-[11px] text-accent-foreground font-medium"
-            >
+            <span key={tag}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent text-[11px] text-accent-foreground font-medium">
               <TagBadge tag={tag} />
-              <button
-                onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
-                className="hover:text-destructive transition-colors"
-                aria-label={`Remove ${tag}`}
-              >
+              <button onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                className="hover:text-destructive transition-colors" aria-label={`Remove ${tag}`}>
                 <X className="size-2.5" />
               </button>
             </span>
