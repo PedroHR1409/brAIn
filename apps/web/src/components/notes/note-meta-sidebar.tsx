@@ -74,8 +74,9 @@ export function NoteMetaSidebar({
       await onProcess(type);
       toast.success(
         type === "permanent"
-          ? "Promovida para Permanent Note!"
-          : "Promovida para Literature Note!",
+          ? "Promovida para Permanent Note! Encontre em Zettelkasten → Notas Permanentes."
+          : "Promovida para Literature Note! Encontre em Zettelkasten → Literature Notes.",
+        { duration: 5000 },
       );
     } catch {
       toast.error("Erro ao processar nota.");

@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Inbox, AlertTriangle, CheckCircle, Briefcase, Globe, BookOpen, Archive, Plus } from "lucide-react";
+import { Inbox, AlertTriangle, CheckCircle, Briefcase, Globe, BookOpen, Archive, Plus, Zap, BookMarked } from "lucide-react";
 import { brainEvents } from "@/lib/events";
 import { toast } from "sonner";
 import { Skeleton } from "@my-better-t-app/ui/components/skeleton";
@@ -11,6 +11,7 @@ import { useNotes, useProcessNote } from "@/hooks/use-notes";
 import type { ApiNote } from "@/lib/api";
 
 type ParaCategory = "project" | "area" | "resource" | "archive";
+type NoteTypeFilter = "permanent" | "literature" | "fleeting";
 
 const PARA_META: Record<ParaCategory, { label: string; icon: React.ComponentType<{ className?: string }>; description: string }> = {
   project: { label: "Projetos", icon: Briefcase, description: "Notas vinculadas a projetos ativos" },
@@ -19,9 +20,16 @@ const PARA_META: Record<ParaCategory, { label: string; icon: React.ComponentType
   archive: { label: "Archive", icon: Archive, description: "Itens arquivados e inativos" },
 };
 
+const TYPE_META: Record<NoteTypeFilter, { label: string; icon: React.ComponentType<{ className?: string }>; description: string }> = {
+  permanent: { label: "Notas Permanentes", icon: Zap, description: "Conhecimento refinado e processado — sua biblioteca de ideias duradouras" },
+  literature: { label: "Literature Notes", icon: BookMarked, description: "Referências processadas — resumos e sínteses de fontes externas" },
+  fleeting: { label: "Fleeting Notes", icon: Inbox, description: "Captura rápida — ideias brutas aguardando processamento" },
+};
+
 export const Route = createFileRoute("/inbox")({
   validateSearch: (search: Record<string, unknown>) => ({
     para: (search.para as ParaCategory | undefined) ?? undefined,
+    type: (search.type as NoteTypeFilter | undefined) ?? undefined,
   }),
   component: InboxPage,
 });
@@ -42,10 +50,12 @@ function isOverdue(note: ApiNote): boolean {
 
 function InboxPage() {
   const navigate = useNavigate();
-  const { para } = Route.useSearch();
+  const { para, type } = Route.useSearch();
   const [filter, setFilter] = useState<FilterType>("all");
 
-  const notesParams = para === "archive"
+  const notesParams = type
+    ? { type }
+    : para === "archive"
     ? { status: "archived" }
     : para
     ? { para }
@@ -70,9 +80,11 @@ function InboxPage() {
     }
   }
 
-  const ParaIcon = para ? PARA_META[para].icon : Inbox;
-  const title = para ? PARA_META[para].label : "Inbox";
-  const description = para
+  const PageIcon = type ? TYPE_META[type].icon : para ? PARA_META[para].icon : Inbox;
+  const title = type ? TYPE_META[type].label : para ? PARA_META[para].label : "Inbox";
+  const description = type
+    ? TYPE_META[type].description
+    : para
     ? PARA_META[para].description
     : "Processar Fleeting Notes — promova, arquive ou descarte";
 
@@ -81,7 +93,7 @@ function InboxPage() {
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-note-literature/15">
-          <ParaIcon className="size-5 text-note-literature" />
+          <PageIcon className="size-5 text-note-literature" />
         </div>
         <div className="flex-1">
           <div className="flex items-center gap-2">
@@ -94,11 +106,11 @@ function InboxPage() {
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
         </div>
-        {para && (
+        {(para || type) && (
           <Button
             size="sm"
             className="gap-1.5 shrink-0"
-            onClick={() => brainEvents.emit("open-capture", { para })}
+            onClick={() => brainEvents.emit("open-capture", para ? { para } : {})}
           >
             <Plus className="size-3.5" />
             Nova nota
@@ -107,7 +119,7 @@ function InboxPage() {
       </div>
 
       {/* Overdue warning — only in inbox mode */}
-      {!para && !loading && overdueCount > 0 && (
+      {!para && !type && !loading && overdueCount > 0 && (
         <div className="flex items-center gap-2 rounded-lg border border-note-fleeting/25 bg-note-fleeting/8 px-4 py-3">
           <AlertTriangle className="size-4 text-note-fleeting shrink-0" />
           <p className="text-xs text-note-fleeting">
@@ -165,7 +177,9 @@ function InboxPage() {
           <CheckCircle className="size-8 text-note-permanent" />
           <p className="text-sm font-medium text-foreground">
             {filter === "all"
-              ? para
+              ? type
+                ? `Nenhuma ${TYPE_META[type].label} ainda.`
+                : para
                 ? `Nenhuma nota em ${PARA_META[para].label}.`
                 : "Inbox vazio! Tudo processado."
               : `Nenhuma nota do tipo ${filter}.`}

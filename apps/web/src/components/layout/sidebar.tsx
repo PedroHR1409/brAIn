@@ -12,6 +12,8 @@ import {
   Sparkles,
   ChevronRight,
   Search,
+  Zap,
+  BookMarked,
 } from "lucide-react";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import { Separator } from "@my-better-t-app/ui/components/separator";
@@ -49,6 +51,11 @@ const PARA_NAV: ParaItem[] = [
   { category: "archive", label: "Archive", icon: Archive },
 ];
 
+const ZETTELKASTEN_NAV = [
+  { type: "permanent" as const, label: "Notas Permanentes", icon: Zap },
+  { type: "literature" as const, label: "Literature Notes",  icon: BookMarked },
+];
+
 const VAULT_NAV: NavItem[] = [
   { to: "/", label: "Saúde da Vault", icon: Activity, exact: true },
   { to: "/ai", label: "AI Studio", icon: Sparkles, exact: true },
@@ -60,14 +67,20 @@ export function Sidebar() {
   const pathname = router.location.pathname;
   const inboxCount = useInboxCount();
 
-  const currentPara = (router.location.search as { para?: string }).para ?? null;
+  const currentSearch = router.location.search as { para?: string; type?: string };
+  const currentPara = currentSearch.para ?? null;
+  const currentType = currentSearch.type ?? null;
 
   function isNavActive(item: NavItem) {
     if (item.exact) {
-      if (item.to === "/inbox") return pathname === "/inbox" && !currentPara;
+      if (item.to === "/inbox") return pathname === "/inbox" && !currentPara && !currentType;
       return pathname === item.to;
     }
     return pathname.startsWith(item.to);
+  }
+
+  function isZettelActive(type: string) {
+    return pathname === "/inbox" && currentType === type;
   }
 
   function isParaActive(category: ParaCategory) {
@@ -163,6 +176,42 @@ export function Sidebar() {
                       onClick={() =>
                         navigate({ to: "/inbox", search: { para: item.category } })
                       }
+                      className={cn(
+                        "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
+                        active
+                          ? "bg-accent text-sidebar-primary shadow-[inset_3px_0_0_var(--color-sidebar-primary)] -ml-[3px] pl-[calc(0.625rem+3px)]"
+                          : "text-sidebar-foreground/70 hover:bg-accent/50 hover:text-sidebar-foreground",
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "size-4 shrink-0 transition-colors",
+                          active ? "text-sidebar-primary" : "text-muted-foreground group-hover:text-sidebar-foreground",
+                        )}
+                      />
+                      <span className="flex-1 text-left truncate">{item.label}</span>
+                      {!active && (
+                        <ChevronRight className="size-3 text-muted-foreground opacity-0 group-hover:opacity-60 transition-opacity" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Zettelkasten */}
+          <div>
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Zettelkasten
+            </p>
+            <ul className="space-y-0.5">
+              {ZETTELKASTEN_NAV.map((item) => {
+                const active = isZettelActive(item.type);
+                return (
+                  <li key={item.type}>
+                    <button
+                      onClick={() => navigate({ to: "/inbox", search: { type: item.type } })}
                       className={cn(
                         "group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors",
                         active

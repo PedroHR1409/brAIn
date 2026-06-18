@@ -84,9 +84,10 @@ export function KnowledgeGraph() {
   async function load() {
     setLoading(true);
     try {
-      const { nodes: raw, edges: rawEdges } = await api.vault.graph();
+      const data = await api.vault.graph();
+      const rawEdges = data.edges ?? [];
       setEdges(rawEdges);
-      setNodes(computeLayout(raw));
+      setNodes(computeLayout(data.nodes ?? []));
     } finally {
       setLoading(false);
     }
@@ -153,9 +154,9 @@ export function KnowledgeGraph() {
               <line
                 key={`${edge.fromNoteId}-${edge.toNoteId}`}
                 x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                stroke={active ? "#7C3AED" : "#374151"}
-                strokeWidth={active ? 2 : 1.5}
-                strokeOpacity={active ? 0.9 : 0.4}
+                stroke={active ? "#A78BFA" : "#6B7280"}
+                strokeWidth={active ? 2.5 : 1.5}
+                strokeOpacity={active ? 1 : 0.65}
                 className="transition-all duration-150"
               />
             );

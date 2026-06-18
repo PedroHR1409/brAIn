@@ -149,7 +149,7 @@ function ConnectionItem({
   onRemove: () => void;
 }) {
   const Icon =
-    conn.direction === "from" ? ArrowRight : conn.direction === "to" ? ArrowLeft : ArrowLeftRight;
+    conn.direction === "outgoing" ? ArrowRight : conn.direction === "incoming" ? ArrowLeft : ArrowLeftRight;
 
   return (
     <div className="group flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-2 hover:border-primary/40 transition-colors">

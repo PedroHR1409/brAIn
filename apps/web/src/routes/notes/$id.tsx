@@ -93,6 +93,7 @@ function NoteDetailPage() {
               key={note.id}
               note={note}
               onUpdate={update}
+              onAddConnection={addConnection}
             />
           ) : null}
         </main>
