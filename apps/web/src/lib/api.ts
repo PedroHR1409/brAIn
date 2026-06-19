@@ -197,6 +197,10 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ date }),
       }),
+    logs: (days?: number) =>
+      request<{ logs: { habitId: string; date: string }[] }>(
+        `/habits/logs${days ? `?days=${days}` : ""}`,
+      ),
   },
   todos: {
     list: () => request<{ todos: ApiTodo[] }>("/notes/todos"),

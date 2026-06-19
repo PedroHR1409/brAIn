@@ -1,5 +1,5 @@
 import { db, habits, habitLogs, notes } from "@my-better-t-app/db";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -24,6 +24,24 @@ habitsRouter.get("/", async (req, res) => {
       logSource: logMap.get(h.id)?.source ?? null,
     })),
   );
+});
+
+// ─── GET /habits/logs?days=30 ─────────────────────────────────────────────────
+// Returns all habit log dates within the last N days (for history grid display)
+
+habitsRouter.get("/logs", async (req, res) => {
+  const days = Math.min(parseInt(req.query.days as string) || 30, 365);
+  const today = todayISO();
+  const start = new Date();
+  start.setDate(start.getDate() - (days - 1));
+  const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+
+  const logs = await db
+    .select({ habitId: habitLogs.habitId, date: habitLogs.date })
+    .from(habitLogs)
+    .where(and(gte(habitLogs.date, startDate), lte(habitLogs.date, today)));
+
+  return res.json({ logs });
 });
 
 // ─── POST /habits ─────────────────────────────────────────────────────────────

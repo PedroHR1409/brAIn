@@ -16,8 +16,23 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function getLast30Days(): string[] {
+  const days: string[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    );
+  }
+  return days;
+}
+
+const EMPTY_SET = new Set<string>();
+
 export function HabitTracker() {
   const [habits, setHabits] = useState<ApiHabit[]>([]);
+  const [logsMap, setLogsMap] = useState<Map<string, Set<string>>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -27,6 +42,7 @@ export function HabitTracker() {
   const [aiRunning, setAiRunning] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const today = todayISO();
+  const days30 = getLast30Days();
 
   async function load() {
     try {
@@ -36,6 +52,17 @@ export function HabitTracker() {
       // silently ignore
     } finally {
       setLoading(false);
+    }
+    try {
+      const { logs } = await api.habits.logs(30);
+      const map = new Map<string, Set<string>>();
+      for (const log of logs) {
+        if (!map.has(log.habitId)) map.set(log.habitId, new Set());
+        map.get(log.habitId)!.add(log.date);
+      }
+      setLogsMap(map);
+    } catch {
+      // logs endpoint unavailable, grid shows empty
     }
   }
 
@@ -49,7 +76,7 @@ export function HabitTracker() {
     try {
       await api.habits.log(habit.id, { date: today, toggle: true });
     } catch {
-      setHabits(habits); // revert
+      setHabits(habits);
       toast.error("Failed to log habit.");
     }
   }
@@ -77,7 +104,7 @@ export function HabitTracker() {
     try {
       await api.habits.delete(id);
     } catch {
-      load(); // refetch on error
+      load();
       toast.error("Failed to delete habit.");
     }
   }
@@ -142,6 +169,9 @@ export function HabitTracker() {
               <HabitRow
                 key={habit.id}
                 habit={habit}
+                today={today}
+                days={days30}
+                completedDates={logsMap.get(habit.id) ?? EMPTY_SET}
                 onToggle={() => toggleHabit(habit)}
                 onDelete={() => deleteHabit(habit.id)}
               />
@@ -217,51 +247,82 @@ export function HabitTracker() {
 
 function HabitRow({
   habit,
+  today,
+  days,
+  completedDates,
   onToggle,
   onDelete,
 }: {
   habit: ApiHabit;
+  today: string;
+  days: string[];
+  completedDates: Set<string>;
   onToggle: () => void;
   onDelete: () => void;
 }) {
   return (
-    <div className="group flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-accent/30 transition-colors">
-      <button
-        onClick={onToggle}
-        className={cn(
-          "size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-all",
-          habit.completedToday
-            ? "border-transparent"
-            : "border-muted-foreground/30 hover:border-primary/60",
-        )}
-        style={habit.completedToday ? { backgroundColor: habit.color } : undefined}
-      >
-        {habit.completedToday && <Check className="size-3 text-white" strokeWidth={3} />}
-      </button>
-
-      <div className="flex-1 min-w-0">
-        <p
+    <div className="group rounded-lg px-1.5 py-1.5 hover:bg-accent/30 transition-colors">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
           className={cn(
-            "text-xs font-medium truncate transition-colors",
-            habit.completedToday ? "text-muted-foreground line-through" : "text-foreground",
+            "size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-all",
+            habit.completedToday
+              ? "border-transparent"
+              : "border-muted-foreground/30 hover:border-primary/60",
           )}
+          style={habit.completedToday ? { backgroundColor: habit.color } : undefined}
         >
-          {habit.name}
-        </p>
-        {habit.completedToday && habit.logSource === "ai" && (
-          <p className="text-[9px] text-primary flex items-center gap-0.5">
-            <Sparkles className="size-2" />
-            AI detected
+          {habit.completedToday && <Check className="size-3 text-white" strokeWidth={3} />}
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <p
+            className={cn(
+              "text-xs font-medium truncate transition-colors",
+              habit.completedToday ? "text-muted-foreground line-through" : "text-foreground",
+            )}
+          >
+            {habit.name}
           </p>
-        )}
+          {habit.completedToday && habit.logSource === "ai" && (
+            <p className="text-[9px] text-primary flex items-center gap-0.5">
+              <Sparkles className="size-2" />
+              AI detected
+            </p>
+          )}
+        </div>
+
+        <button
+          onClick={onDelete}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="size-3" />
+        </button>
       </div>
 
-      <button
-        onClick={onDelete}
-        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+      {/* 30-day history grid — oldest left, today right */}
+      <div
+        className="mt-1.5"
+        style={{ display: "grid", gridTemplateColumns: "repeat(30, 1fr)", gap: "2px" }}
       >
-        <Trash2 className="size-3" />
-      </button>
+        {days.map((dateStr) => {
+          const isToday = dateStr === today;
+          const completed = isToday ? habit.completedToday : completedDates.has(dateStr);
+          const [, m, d] = dateStr.split("-");
+          return (
+            <div
+              key={dateStr}
+              title={`${d}/${m}`}
+              className={cn(
+                "aspect-square rounded-[2px] transition-opacity hover:opacity-70",
+                !completed && "bg-muted/40",
+              )}
+              style={completed ? { backgroundColor: habit.color } : undefined}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
