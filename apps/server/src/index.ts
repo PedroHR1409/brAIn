@@ -42,7 +42,7 @@ app.use(express.json());
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 app.get("/", (_req, res) => {
-  res.status(200).json({ status: "ok", version: "0.1.0" });
+  res.status(200).json({ status: "ok", version: "0.2.0", routes: ["notes", "habits", "tasks", "vault"] });
 });
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
