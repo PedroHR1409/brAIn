@@ -139,11 +139,8 @@ habitsRouter.post("/ai-detect", async (req, res) => {
 
     const matchingNote = todayNotes.find((note) =>
       habit.keywords.some((kw) => {
-        const lower = kw.toLowerCase();
-        return (
-          note.title.toLowerCase().includes(lower) ||
-          note.content.toLowerCase().includes(lower)
-        );
+        const pattern = new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+        return pattern.test(note.title) || pattern.test(note.content);
       }),
     );
 

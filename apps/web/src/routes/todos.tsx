@@ -454,11 +454,9 @@ function TodosPage() {
 
   async function load() {
     try {
-      const [pending, done] = await Promise.all([
-        api.tasks.list({ completed: false }),
-        showCompleted ? api.tasks.list({ completed: true }) : Promise.resolve({ tasks: [] }),
-      ]);
-      setTasks([...pending.tasks, ...done.tasks]);
+      // completed: true = no server filter = all tasks; client-side display filter handles views
+      const { tasks: rows } = await api.tasks.list({ completed: true });
+      setTasks(rows);
     } catch {
       toast.error("Failed to load tasks.");
     } finally {
@@ -466,7 +464,7 @@ function TodosPage() {
     }
   }
 
-  useEffect(() => { load(); }, [showCompleted]);
+  useEffect(() => { load(); }, []);
 
   async function toggleTask(task: ApiTask) {
     try {
@@ -492,7 +490,7 @@ function TodosPage() {
   const displayed = tasks.filter((t) => {
     if (filter === "today")     return t.dueDate === today && !t.completed;
     if (filter === "completed") return t.completed;
-    return !t.completed;
+    return showCompleted ? true : !t.completed;
   });
 
   const pendingCount = tasks.filter((t) => !t.completed).length;
