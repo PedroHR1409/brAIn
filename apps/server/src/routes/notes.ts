@@ -7,6 +7,7 @@ import {
 } from "@my-better-t-app/db";
 import {
   and,
+  count,
   desc,
   eq,
   getTableColumns,
@@ -139,13 +140,19 @@ notesRouter.get("/", async (req, res) => {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = await db
-    .select(getTableColumns(notes))
-    .from(notes)
-    .where(where)
-    .orderBy(desc(notes.createdAt))
-    .limit(limit)
-    .offset(offset);
+  const [rows, [{ totalCount }]] = await Promise.all([
+    db
+      .select(getTableColumns(notes))
+      .from(notes)
+      .where(where)
+      .orderBy(desc(notes.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ totalCount: count() })
+      .from(notes)
+      .where(where),
+  ]);
 
   const ids = rows.map((r) => r.id);
   const [tagsByNote, countsByNote] = await Promise.all([
@@ -159,7 +166,7 @@ notesRouter.get("/", async (req, res) => {
     connections: countsByNote[n.id] ?? 0,
   }));
 
-  return res.json({ data, total: data.length, limit, offset });
+  return res.json({ data, total: totalCount, limit, offset });
 });
 
 // ─── GET /notes/todos ─────────────────────────────────────────────────────────

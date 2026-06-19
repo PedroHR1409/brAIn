@@ -54,6 +54,11 @@ const PARA_CONFIG: Record<string, { type: NoteType; content: string; titlePlaceh
     content: "## About\n\n\n## Key Points\n\n\n## Practical Application\n\n",
     titlePlaceholder: "Resource or topic name",
   },
+  archive: {
+    type: "permanent",
+    content: "",
+    titlePlaceholder: "What are you archiving?",
+  },
 };
 
 const ALL_TEMPLATES = new Set(

@@ -19,17 +19,23 @@ connectionsRouter.get("/", async (req, res) => {
     orderBy: (c, { desc }) => [desc(c.createdAt)],
   });
 
-  const formatted = rows.map((c) => {
-    const isFrom = c.fromNoteId === noteId;
-    const other = isFrom ? c.toNote : c.fromNote;
-    return {
-      id: c.id,
-      label: c.label,
-      strength: c.strength,
-      direction: isFrom ? "outgoing" : "incoming",
-      note: { id: other.id, title: other.title, type: other.type },
-    };
-  });
+  const formatted = rows
+    .filter((c) => {
+      // Skip orphaned connections where the other note was deleted
+      const isFrom = c.fromNoteId === noteId;
+      return isFrom ? !!c.toNote : !!c.fromNote;
+    })
+    .map((c) => {
+      const isFrom = c.fromNoteId === noteId;
+      const other = (isFrom ? c.toNote : c.fromNote)!;
+      return {
+        id: c.id,
+        label: c.label,
+        strength: c.strength,
+        direction: isFrom ? "outgoing" : "incoming",
+        note: { id: other.id, title: other.title, type: other.type },
+      };
+    });
 
   return res.json(formatted);
 });

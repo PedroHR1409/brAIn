@@ -63,12 +63,13 @@ export function useNote(id: string) {
       setProcessing(true);
       try {
         const saved = await api.notes.process(id, { type });
-        // Preserve existing tags if server omits them (defensive)
         const merged: ApiNote = { ...saved, tags: saved.tags ?? noteRef.current?.tags ?? [] };
         setNote(merged);
         noteRef.current = merged;
         brainEvents.emit("note-updated");
         return merged;
+      } catch (e) {
+        throw e;
       } finally {
         setProcessing(false);
       }

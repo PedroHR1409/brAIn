@@ -53,11 +53,16 @@ function buildSuggestions(inboxCount: number): AiSuggestion[] {
   return items;
 }
 
-const DESTINATION: Record<AiSuggestion["type"], string> = {
-  link:    "/graph",
-  process: "/inbox",
-  expand:  "/inbox?type=permanent",
-  archive: "/inbox?para=archive",
+type InboxSearch = { para: "project" | "area" | "resource" | "archive" | undefined; type: "fleeting" | "literature" | "permanent" | undefined };
+type Destination =
+  | { to: "/graph" }
+  | { to: "/inbox"; search: InboxSearch };
+
+const DESTINATION: Record<AiSuggestion["type"], Destination> = {
+  link:    { to: "/graph" },
+  process: { to: "/inbox", search: { para: undefined, type: undefined } },
+  expand:  { to: "/inbox", search: { para: undefined, type: "permanent" } },
+  archive: { to: "/inbox", search: { para: "archive", type: undefined } },
 };
 
 const suggestionIcon: Record<AiSuggestion["type"], React.ReactNode> = {
@@ -98,13 +103,8 @@ export function AiSuggestions({ inboxCount = 0, suggestions }: AiSuggestionsProp
             suggestion={s}
             onClick={() => {
               const dest = DESTINATION[s.type];
-              if (dest.includes("?")) {
-                const [path, qs] = dest.split("?");
-                const params = Object.fromEntries(new URLSearchParams(qs));
-                navigate({ to: path, search: params });
-              } else {
-                navigate({ to: dest });
-              }
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              navigate(dest as any);
             }}
           />
         ))}
