@@ -174,34 +174,20 @@ function MessageBubble({
 }
 
 function MarkdownText({ text }: { text: string }) {
-  // Light markdown: bold, inline code, horizontal rules, newlines
   const lines = text.split("\n");
   return (
     <div className="space-y-1.5">
       {lines.map((line, i) => {
-        if (line.startsWith("---")) {
-          return <hr key={i} className="border-border my-2" />;
-        }
-        if (line.startsWith("**") && line.endsWith("**")) {
-          return (
-            <p key={i} className="font-semibold text-foreground">
-              {line.slice(2, -2)}
-            </p>
-          );
-        }
+        if (line.startsWith("---")) return <hr key={i} className="border-border my-2" />;
+        if (line.startsWith("### ")) return <p key={i} className="text-xs font-semibold text-foreground mt-2">{line.slice(4)}</p>;
+        if (line.startsWith("## "))  return <p key={i} className="text-sm font-bold text-foreground mt-3">{line.slice(3)}</p>;
+        if (line.startsWith("# "))   return <p key={i} className="text-base font-bold text-foreground mt-3">{line.slice(2)}</p>;
         if (line === "") return <div key={i} className="h-1" />;
-        // Inline bold: **text**
         const parts = line.split(/\*\*(.+?)\*\*/g);
         return (
           <p key={i} className="leading-relaxed">
             {parts.map((part, j) =>
-              j % 2 === 1 ? (
-                <strong key={j} className="font-semibold">
-                  {part}
-                </strong>
-              ) : (
-                part
-              ),
+              j % 2 === 1 ? <strong key={j} className="font-semibold">{part}</strong> : part,
             )}
           </p>
         );
