@@ -302,7 +302,7 @@ function HabitRow({
       </div>
 
       {/* 30-day history grid — oldest left, today right */}
-      <div className="flex gap-[2px] mt-1.5">
+      <div style={{ display: "flex", gap: "2px", marginTop: "6px" }}>
         {days.map((dateStr) => {
           const isToday = dateStr === today;
           const completed = isToday ? habit.completedToday : completedDates.has(dateStr);
@@ -311,11 +311,13 @@ function HabitRow({
             <div
               key={dateStr}
               title={`${d}/${m}`}
-              className={cn(
-                "size-[6px] shrink-0 rounded-[2px]",
-                completed ? "" : "bg-muted/60",
-              )}
-              style={completed ? { backgroundColor: habit.color } : undefined}
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "2px",
+                flexShrink: 0,
+                backgroundColor: completed ? habit.color : "var(--border)",
+              }}
             />
           );
         })}
