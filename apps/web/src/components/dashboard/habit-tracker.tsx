@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Target, Plus, Check, Sparkles, Trash2, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Target, Plus, Check, Sparkles, Trash2, X, ChevronDown, ChevronUp, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@my-better-t-app/ui/components/button";
 import { Input } from "@my-better-t-app/ui/components/input";
@@ -30,6 +30,22 @@ function getLast14Days(): string[] {
 
 const EMPTY_SET = new Set<string>();
 
+function getStreak(completedDates: Set<string>, completedToday: boolean): number {
+  let streak = 0;
+  // If today not done yet, check from yesterday so streak isn't reset mid-day
+  let i = completedToday ? 0 : 1;
+  while (i < 91) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const done = i === 0 ? completedToday : completedDates.has(dateStr);
+    if (!done) break;
+    streak++;
+    i++;
+  }
+  return streak;
+}
+
 export function HabitTracker() {
   const [habits, setHabits] = useState<ApiHabit[]>([]);
   const [logsMap, setLogsMap] = useState<Map<string, Set<string>>>(new Map());
@@ -54,7 +70,7 @@ export function HabitTracker() {
       setLoading(false);
     }
     try {
-      const { logs } = await api.habits.logs(30);
+      const { logs } = await api.habits.logs(90);
       const map = new Map<string, Set<string>>();
       for (const log of logs) {
         if (!map.has(log.habitId)) map.set(log.habitId, new Set());
@@ -277,14 +293,28 @@ function HabitRow({
         </button>
 
         <div className="flex-1 min-w-0">
-          <p
-            className={cn(
-              "text-xs font-medium truncate transition-colors",
-              habit.completedToday ? "text-muted-foreground line-through" : "text-foreground",
-            )}
-          >
-            {habit.name}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p
+              className={cn(
+                "text-xs font-medium truncate transition-colors",
+                habit.completedToday ? "text-muted-foreground line-through" : "text-foreground",
+              )}
+            >
+              {habit.name}
+            </p>
+            {(() => {
+              const streak = getStreak(completedDates, habit.completedToday);
+              return streak >= 1 ? (
+                <span
+                  className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0"
+                  style={{ color: habit.color }}
+                >
+                  <Flame className="size-2.5" />
+                  {streak}
+                </span>
+              ) : null;
+            })()}
+          </div>
           {habit.completedToday && habit.logSource === "ai" && (
             <p className="text-[9px] text-primary flex items-center gap-0.5">
               <Sparkles className="size-2" />
