@@ -16,9 +16,9 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getLast30Days(): string[] {
+function getLast14Days(): string[] {
   const days: string[] = [];
-  for (let i = 29; i >= 0; i--) {
+  for (let i = 13; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
     days.push(
@@ -42,7 +42,7 @@ export function HabitTracker() {
   const [aiRunning, setAiRunning] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const today = todayISO();
-  const days30 = getLast30Days();
+  const days14 = getLast14Days();
 
   async function load() {
     try {
@@ -170,8 +170,8 @@ export function HabitTracker() {
                 key={habit.id}
                 habit={habit}
                 today={today}
-                days={days30}
                 completedDates={logsMap.get(habit.id) ?? EMPTY_SET}
+                days={days14}
                 onToggle={() => toggleHabit(habit)}
                 onDelete={() => deleteHabit(habit.id)}
               />
@@ -312,9 +312,9 @@ function HabitRow({
               key={dateStr}
               title={`${d}/${m}`}
               style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "2px",
+                width: "10px",
+                height: "10px",
+                borderRadius: "3px",
                 flexShrink: 0,
                 backgroundColor: completed ? habit.color : "var(--border)",
               }}
