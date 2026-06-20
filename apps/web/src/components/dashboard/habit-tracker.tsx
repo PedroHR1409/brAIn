@@ -312,8 +312,8 @@ function HabitRow({
               key={dateStr}
               title={`${d}/${m}`}
               style={{
-                width: "10px",
-                height: "10px",
+                width: "14px",
+                height: "14px",
                 borderRadius: "3px",
                 flexShrink: 0,
                 backgroundColor: completed ? habit.color : "var(--border)",
