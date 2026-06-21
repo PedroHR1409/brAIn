@@ -77,7 +77,7 @@ function DashboardPage() {
             )}
           </section>
 
-          <AiSuggestions inboxCount={stats?.pending ?? 0} />
+          <AiSuggestions stats={stats} />
         </div>
 
         {/* ── Right sidebar: Habits + Todos ── */}

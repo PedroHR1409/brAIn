@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Target, Plus, Check, Sparkles, Trash2, X, ChevronDown, ChevronUp, Flame } from "lucide-react";
+import { Target, Plus, Sparkles, Trash2, X, ChevronDown, ChevronUp, Flame } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@my-better-t-app/ui/components/button";
 import { Input } from "@my-better-t-app/ui/components/input";
@@ -276,21 +276,18 @@ function HabitRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const streak = getStreak(completedDates, habit.completedToday);
+
   return (
-    <div className="group rounded-lg px-1.5 py-1.5 hover:bg-accent/30 transition-colors">
+    <div
+      className="group rounded-lg px-1.5 py-1.5 hover:bg-accent/30 transition-colors cursor-pointer"
+      onClick={onToggle}
+    >
       <div className="flex items-center gap-2">
-        <button
-          onClick={onToggle}
-          className={cn(
-            "size-5 shrink-0 rounded-full border-2 flex items-center justify-center transition-all",
-            habit.completedToday
-              ? "border-transparent"
-              : "border-muted-foreground/30 hover:border-primary/60",
-          )}
-          style={habit.completedToday ? { backgroundColor: habit.color } : undefined}
-        >
-          {habit.completedToday && <Check className="size-3 text-white" strokeWidth={3} />}
-        </button>
+        <div
+          className="size-2 shrink-0 rounded-full transition-all"
+          style={{ backgroundColor: habit.completedToday ? habit.color : "var(--border)" }}
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -302,18 +299,15 @@ function HabitRow({
             >
               {habit.name}
             </p>
-            {(() => {
-              const streak = getStreak(completedDates, habit.completedToday);
-              return streak >= 1 ? (
-                <span
-                  className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0"
-                  style={{ color: habit.color }}
-                >
-                  <Flame className="size-2.5" />
-                  {streak}
-                </span>
-              ) : null;
-            })()}
+            {streak >= 1 && (
+              <span
+                className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0"
+                style={{ color: habit.color }}
+              >
+                <Flame className="size-2.5" />
+                {streak}
+              </span>
+            )}
           </div>
           {habit.completedToday && habit.logSource === "ai" && (
             <p className="text-[9px] text-primary flex items-center gap-0.5">
@@ -324,7 +318,7 @@ function HabitRow({
         </div>
 
         <button
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
         >
           <Trash2 className="size-3" />

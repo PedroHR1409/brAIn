@@ -1,56 +1,146 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Sparkles, Link, Archive, ChevronRight, Zap, BookOpen } from "lucide-react";
+import { Sparkles, Link, Archive, ChevronRight, Zap, BookOpen, AlertTriangle, Network } from "lucide-react";
 import { cn } from "@my-better-t-app/ui/lib/utils";
 import type { AiSuggestion } from "@/types/brain";
+import type { ApiVaultStats } from "@/lib/api";
 
 interface AiSuggestionsProps {
-  inboxCount?: number;
-  suggestions?: AiSuggestion[];
+  stats?: ApiVaultStats | null;
 }
 
-function buildSuggestions(inboxCount: number): AiSuggestion[] {
-  const items: AiSuggestion[] = [
-    {
-      id: "1",
-      type: "link",
-      title: "Connect notes via Knowledge Graph",
-      description:
-        'Use [[wikilinks]] in your notes to link related ideas and visualize connections in the graph.',
-      priority: "high",
-    },
-  ];
+function buildSuggestions(stats: ApiVaultStats | null | undefined): AiSuggestion[] {
+  const items: AiSuggestion[] = [];
 
-  if (inboxCount > 0) {
+  if (!stats || stats.total === 0) {
+    return [
+      {
+        id: "start",
+        type: "process",
+        title: "Start capturing your first notes",
+        description: "Use Quick Capture (Ctrl+C) to add fleeting thoughts. Your Second Brain starts with a single note.",
+        priority: "high",
+      },
+      {
+        id: "link",
+        type: "link",
+        title: "Connect ideas via Knowledge Graph",
+        description: "Use [[wikilinks]] in notes to link related ideas and discover patterns in your knowledge.",
+        priority: "medium",
+      },
+    ];
+  }
+
+  const { total, permanent, fleeting, pending, connections, healthScore } = stats;
+  const connRatio = connections / total;
+  const permRatio = permanent / total;
+
+  // Urgent: many pending notes
+  if (pending >= 5) {
     items.push({
-      id: "2",
+      id: "process-urgent",
       type: "process",
-      title: `${inboxCount} Fleeting Note${inboxCount > 1 ? "s" : ""} waiting to be processed`,
-      description:
-        "Promote, archive, or delete to keep your inbox clean. Fleeting notes older than 48h need attention.",
+      title: `${pending} Fleeting Notes piling up`,
+      description: "Your inbox needs attention. Process, promote, or archive to keep your Second Brain healthy.",
+      priority: "high",
+    });
+  } else if (pending > 0) {
+    items.push({
+      id: "process",
+      type: "process",
+      title: `${pending} Fleeting Note${pending > 1 ? "s" : ""} waiting to be processed`,
+      description: "Promote strong ideas to Permanent, archive reference material, or delete noise.",
+      priority: pending >= 3 ? "high" : "medium",
+    });
+  }
+
+  // Low health score
+  if (healthScore < 40) {
+    items.push({
+      id: "health",
+      type: "archive",
+      title: `Vault health at ${healthScore}% — needs work`,
+      description: "Process pending notes, link ideas together, and promote key insights to Permanent status.",
       priority: "high",
     });
   }
 
-  items.push(
-    {
-      id: "3",
-      type: "expand",
-      title: "Grow your Permanent Notes",
-      description:
-        "Permanent notes are the core of your Second Brain. Promote strong Fleeting and Literature notes to deepen your knowledge library.",
+  // Very few connections relative to notes
+  if (total >= 5 && connections === 0) {
+    items.push({
+      id: "link-zero",
+      type: "link",
+      title: "No connections yet — start linking",
+      description: "Add [[wikilinks]] between related notes. Connected knowledge is exponentially more valuable.",
+      priority: "high",
+    });
+  } else if (total >= 10 && connRatio < 0.4) {
+    items.push({
+      id: "link-low",
+      type: "link",
+      title: `${connections} connection${connections !== 1 ? "s" : ""} across ${total} notes — add more`,
+      description: "Most of your notes are isolated. Use [[wikilinks]] to weave them into a connected knowledge base.",
       priority: "medium",
-    },
-    {
-      id: "4",
+    });
+  }
+
+  // Few permanent notes
+  if (total >= 10 && permRatio < 0.15) {
+    items.push({
+      id: "expand",
+      type: "expand",
+      title: permanent === 0
+        ? "No Permanent Notes yet"
+        : `Only ${permanent} Permanent note${permanent !== 1 ? "s" : ""} (${Math.round(permRatio * 100)}% of vault)`,
+      description: "Permanent notes are the evergreen core of your Second Brain. Promote your best Literature and Fleeting notes.",
+      priority: permanent === 0 ? "high" : "medium",
+    });
+  }
+
+  // Vault is healthy — positive reinforcement
+  if (items.length === 0 && healthScore >= 70) {
+    items.push({
+      id: "healthy",
+      type: "link",
+      title: `Vault health: ${healthScore}% — looking great`,
+      description: `${total} notes, ${connections} connections, ${permanent} permanent. Keep building momentum.`,
+      priority: "low",
+    });
+  }
+
+  // Explore graph if well connected
+  if (connRatio >= 0.6 && total >= 10) {
+    items.push({
+      id: "graph",
+      type: "link",
+      title: "Explore your Knowledge Graph",
+      description: `${connections} connections across ${total} notes. Visualize clusters and find unexpected links.`,
+      priority: "low",
+    });
+  }
+
+  // Grow permanent notes if reasonable ratio but could be more
+  if (permRatio >= 0.15 && permRatio < 0.4 && total >= 10) {
+    items.push({
+      id: "expand-more",
+      type: "expand",
+      title: "Keep growing your Permanent Notes",
+      description: `${permanent} permanent notes so far. Aim for 30–40% of your vault to be evergreen knowledge.`,
+      priority: "low",
+    });
+  }
+
+  // Archive review (fill to at least 2 suggestions)
+  if (items.length < 2) {
+    items.push({
+      id: "archive",
       type: "archive",
       title: "Review your Archive",
-      description:
-        "Archived notes can be a goldmine — browse occasionally to rediscover old ideas or promote them back.",
+      description: "Archived notes can be a goldmine — browse occasionally to resurface old ideas worth revisiting.",
       priority: "low",
-    },
-  );
+    });
+  }
 
-  return items;
+  return items.slice(0, 4);
 }
 
 type InboxSearch = { para: "project" | "area" | "resource" | "archive" | undefined; type: "fleeting" | "literature" | "permanent" | undefined };
@@ -66,7 +156,7 @@ const DESTINATION: Record<AiSuggestion["type"], Destination> = {
 };
 
 const suggestionIcon: Record<AiSuggestion["type"], React.ReactNode> = {
-  link:    <Link className="size-3.5" />,
+  link:    <Network className="size-3.5" />,
   process: <Zap className="size-3.5" />,
   expand:  <BookOpen className="size-3.5" />,
   archive: <Archive className="size-3.5" />,
@@ -84,9 +174,9 @@ const priorityDot: Record<AiSuggestion["priority"], string> = {
   low:    "bg-muted-foreground",
 };
 
-export function AiSuggestions({ inboxCount = 0, suggestions }: AiSuggestionsProps) {
+export function AiSuggestions({ stats }: AiSuggestionsProps) {
   const navigate = useNavigate();
-  const items = suggestions ?? buildSuggestions(inboxCount);
+  const items = buildSuggestions(stats);
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 space-y-4">
